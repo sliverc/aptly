@@ -133,20 +133,18 @@ func (context *AptlyContext) DependencyOptions() int {
 	context.Lock()
 	defer context.Unlock()
 
-	if context.dependencyOptions == -1 {
-		context.dependencyOptions = 0
-		if context.lookupOption(context.config().DepFollowSuggests, "dep-follow-suggests") {
-			context.dependencyOptions |= deb.DepFollowSuggests
-		}
-		if context.lookupOption(context.config().DepFollowRecommends, "dep-follow-recommends") {
-			context.dependencyOptions |= deb.DepFollowRecommends
-		}
-		if context.lookupOption(context.config().DepFollowAllVariants, "dep-follow-all-variants") {
-			context.dependencyOptions |= deb.DepFollowAllVariants
-		}
-		if context.lookupOption(context.config().DepFollowSource, "dep-follow-source") {
-			context.dependencyOptions |= deb.DepFollowSource
-		}
+	context.dependencyOptions = 0
+	if context.LookupOption(context.Config().DepFollowSuggests, "dep-follow-suggests") {
+		context.dependencyOptions |= deb.DepFollowSuggests
+	}
+	if context.LookupOption(context.Config().DepFollowRecommends, "dep-follow-recommends") {
+		context.dependencyOptions |= deb.DepFollowRecommends
+	}
+	if context.LookupOption(context.Config().DepFollowAllVariants, "dep-follow-all-variants") {
+		context.dependencyOptions |= deb.DepFollowAllVariants
+	}
+	if context.LookupOption(context.Config().DepFollowSource, "dep-follow-source") {
+		context.dependencyOptions |= deb.DepFollowSource
 	}
 
 	return context.dependencyOptions
@@ -156,13 +154,10 @@ func (context *AptlyContext) DependencyOptions() int {
 func (context *AptlyContext) ArchitecturesList() []string {
 	context.Lock()
 	defer context.Unlock()
-
-	if context.architecturesList == nil {
-		context.architecturesList = context.config().Architectures
-		optionArchitectures := context.globalFlags.Lookup("architectures").Value.String()
-		if optionArchitectures != "" {
-			context.architecturesList = strings.Split(optionArchitectures, ",")
-		}
+	context.architecturesList = context.Config().Architectures
+	optionArchitectures := context.globalFlags.Lookup("architectures").Value.String()
+	if optionArchitectures != "" {
+		context.architecturesList = strings.Split(optionArchitectures, ",")
 	}
 
 	return context.architecturesList
