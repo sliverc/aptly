@@ -25,7 +25,7 @@ func NewContentsIndex(db database.Storage, repo PublishedRepo, component string,
 // Key generates unique identifier for contents index file with given path
 func (index *ContentsIndex) Key(path string) []byte {
 	refKey := index.repo.RefKey(index.component)
-	return []byte(fmt.Sprintf("C%s_%s_%v$%s", refKey, index.architecture, index.udeb, path))
+	return []byte(fmt.Sprintf("xI%s_%s_%v$%s", refKey, index.architecture, index.udeb, path))
 }
 
 // Push adds package to contents index, calculating package contents as required
