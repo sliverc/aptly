@@ -32,8 +32,8 @@ func getVerifier(ignoreSignatures bool, keyRings []string) (utils.Verifier, erro
 // GET /api/mirrors
 func apiMirrorsList(c *gin.Context) {
 	collection := context.CollectionFactory().RemoteRepoCollection()
-	collection.Lock()
-	defer collection.Unlock()
+	collection.RLock()
+	defer collection.RUnlock()
 
 	result := []*deb.RemoteRepo{}
 	collection.ForEach(func(repo *deb.RemoteRepo) error {
