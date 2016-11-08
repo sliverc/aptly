@@ -9,6 +9,7 @@ import (
 
 var context *ctx.AptlyContext
 
+// QueryContext sets request query as global flags on context
 func QueryContext() gin.HandlerFunc {
     return func(c *gin.Context) {
         context.GlobalFlags().VisitAll(func(flag *flag.Flag) {
