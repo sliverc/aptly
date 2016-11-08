@@ -1,6 +1,7 @@
 import time
 from api_lib import APITest
 
+
 class MirrorsAPITestCreateShow(APITest):
     """
     POST /api/mirrors, GET /api/mirrors/:name/packages
@@ -15,8 +16,10 @@ class MirrorsAPITestCreateShow(APITest):
 
         resp = self.post("/api/mirrors", json=mirror_desc)
         self.check_equal(resp.status_code, 403)
-        self.check_equal([{'error':'unable to fetch mirror: verification of detached signature failed: exit status 2',
-                          'meta':'Operation aborted'}], resp.json())
+        self.check_equal([{
+            'error': 'unable to fetch mirror: verification of detached signature failed: exit status 2',
+            'meta': 'Operation aborted'
+        }], resp.json())
 
         mirror_desc[u'IgnoreSignatures'] = True
         resp = self.post("/api/mirrors", json=mirror_desc)
@@ -56,11 +59,12 @@ class MirrorsAPITestCreateUpdate(APITest):
         resp = self.put("/api/mirrors/" + mirror_name, json=mirror_desc)
         self.check_equal(resp.status_code, 200)
         self.check_subset({u'Name': mirror_desc["Name"],
-                           u'ArchiveRoot':'http://repo.varnish-cache.org/debian/',
+                           u'ArchiveRoot': 'http://repo.varnish-cache.org/debian/',
                            u'Distribution': 'wheezy'}, resp.json())
 
         for x in xrange(5):
-            if resp.json()["LastDownloadDate"] != "0001-01-01T00:00:00Z": break
+            if resp.json()["LastDownloadDate"] != "0001-01-01T00:00:00Z":
+                break
             time.sleep(3)
             resp = self.get("/api/mirrors/" + mirror_desc["Name"])
 
