@@ -385,6 +385,15 @@ func apiMirrorsUpdate(c *gin.Context) {
 		return
 	}
 
+	defer func() {
+		// on any interruption, unlock the mirror
+		err := context.ReOpenDatabase()
+		if err == nil {
+			remote.MarkAsIdle()
+			collection.Update(remote)
+		}
+	}()
+
 	remote.MarkAsUpdating()
 	err = collection.Update(remote)
 	if err != nil {
@@ -395,18 +404,27 @@ func apiMirrorsUpdate(c *gin.Context) {
 	// In separate goroutine (to avoid blocking main), push queue to downloader
 	ch := make(chan error, len(queue))
 	go func() {
-		defer func() {
-			remote.MarkAsIdle()
-			collection.Update(remote)
-		}()
-
 		for _, task := range queue {
 			context.Downloader().DownloadWithChecksum(remote.PackageURL(task.RepoURI).String(), task.DestinationPath, ch, task.Checksums, b.SkipComponentCheck)
 		}
 
-        remote.FinalizeDownload()
 		queue = nil
 	}()
 
+	// Wait for all downloads to finish
+	var errors []string
+	count := len(queue)
+
+	for count > 0 {
+		select {
+		case err = <-ch:
+			if err != nil {
+				errors = append(errors, err.Error())
+			}
+			count--
+		}
+	}
+
+	remote.FinalizeDownload()
 	c.JSON(200, remote)
 }

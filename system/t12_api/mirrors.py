@@ -62,11 +62,8 @@ class MirrorsAPITestCreateUpdate(APITest):
                            u'ArchiveRoot': 'http://repo.varnish-cache.org/debian/',
                            u'Distribution': 'wheezy'}, resp.json())
 
-        for x in xrange(5):
-            if resp.json()["LastDownloadDate"] != "0001-01-01T00:00:00Z":
-                break
-            time.sleep(3)
-            resp = self.get("/api/mirrors/" + mirror_desc["Name"])
+        resp = self.get("/api/mirrors/" + mirror_desc["Name"])
+        self.check_equal(resp.status_code, 200)
 
         resp = self.get("/api/mirrors/" + mirror_desc["Name"] + "/packages")
         self.check_equal(resp.status_code, 200)
