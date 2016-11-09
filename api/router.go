@@ -26,7 +26,7 @@ func Router(c *ctx.AptlyContext) http.Handler {
 
 	router := gin.Default()
 	router.Use(gin.ErrorLogger())
-	router.Use(QueryContext())
+	// router.Use(QueryContext())
 
 	if context.Flags().Lookup("no-lock").Value.Get().(bool) {
 		// We use a goroutine to count the number of
