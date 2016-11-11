@@ -18,10 +18,10 @@ const (
 
 // Task represents as task in a queue encapsulates process code
 type Task struct {
-	Processor
+	Processor `json:"-"`
 	Name  string
 	ID    int
-	Err   error
+	Err   error `json:",omitempty"`
 	State State
 }
 
