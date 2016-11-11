@@ -43,6 +43,7 @@ func (q *Queue) Tasks() []*Task {
 func New() *Queue {
 	q := &Queue{
 		work: make(chan *Task),
+		tasks: make([]*Task, 0),
 	}
 
 	// Start single worker of queue
