@@ -28,10 +28,10 @@ type Task struct {
 // Queue is handling list of processes and makes sure
 // only one process is executed at the time
 type Queue struct {
-	mu   sync.Mutex
-	work chan *Task
-
+	mu    sync.Mutex
+	work  chan *Task
 	Tasks []*Task
+	wg    sync.WaitGroup
 }
 
 // New creates empty queue ready to be tasked
@@ -41,8 +41,13 @@ func New() *Queue {
 	}
 
 	// Start single worker of queue
+	q.wg.Add(1)
 	go func() {
-		task := <-q.work
+		task, ok := <-q.work
+		if !ok {
+			q.wg.Done()
+			return
+		}
 
 		q.mu.Lock()
 		task.state = RUNNING
@@ -85,6 +90,17 @@ func (q *Queue) Clear() {
 		}
 	}
 	q.Tasks = tasks
+
+	q.mu.Unlock()
+}
+
+// Close stops running any additional tasks and waits still current tasks is finished
+func (q *Queue) Close() {
+	q.mu.Lock()
+
+	close(q.work)
+	q.wg.Wait()
+	q.Tasks = make([]*Task, 0)
 
 	q.mu.Unlock()
 }
