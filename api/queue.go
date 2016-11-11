@@ -10,7 +10,7 @@ import (
 // GET /queue
 func apiQueueList(c *gin.Context) {
 	queue := context.Queue()
-	c.JSON(200, queue.Tasks())
+	c.JSON(200, queue.Tasks)
 }
 
 // POST /queue/clear
@@ -28,5 +28,5 @@ func apiQueueTest(c *gin.Context) {
 	})
 	context.Queue().Enqueue("/queue/test/", proc)
 
-	c.JSON(200, gin.H{})
+	c.JSON(202, gin.H{})
 }

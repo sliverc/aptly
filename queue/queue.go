@@ -30,20 +30,15 @@ type Task struct {
 type Queue struct {
 	mu    sync.Mutex
 	work  chan *Task
-	tasks []*Task
+	Tasks []*Task
 	wg    sync.WaitGroup
-}
-
-// Tasks gets list of all tasks (open, running and finished)
-func (q *Queue) Tasks() []*Task {
-	return q.tasks
 }
 
 // New creates empty queue ready to be tasked
 func New() *Queue {
 	q := &Queue{
 		work: make(chan *Task),
-		tasks: make([]*Task, 0),
+		Tasks: make([]*Task, 0),
 	}
 
 	// Start single worker of queue
@@ -77,9 +72,9 @@ func (q *Queue) Enqueue(name string, proc Processor) *Task {
 
 	q.mu.Lock()
 	task := &Task{
-		Processor: proc, Name: name, ID: len(q.tasks) + 1, State: IDLE,
+		Processor: proc, Name: name, ID: len(q.Tasks) + 1, State: IDLE,
 	}
-	q.tasks = append(q.tasks, task)
+	q.Tasks = append(q.Tasks, task)
 	q.mu.Unlock()
 
 	go func() {
@@ -94,12 +89,12 @@ func (q *Queue) Clear() {
 	q.mu.Lock()
 
 	var tasks []*Task
-	for _, task := range q.tasks {
+	for _, task := range q.Tasks {
 		if task.State != FINISHED {
 			tasks = append(tasks, task)
 		}
 	}
-	q.tasks = tasks
+	q.Tasks = tasks
 
 	q.mu.Unlock()
 }
@@ -110,7 +105,7 @@ func (q *Queue) Close() {
 
 	close(q.work)
 	q.wg.Wait()
-	q.tasks = make([]*Task, 0)
+	q.Tasks = make([]*Task, 0)
 
 	q.mu.Unlock()
 }
