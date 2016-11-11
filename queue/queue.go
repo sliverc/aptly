@@ -51,22 +51,24 @@ func New() *Queue {
 	// Start single worker of queue
 	q.wg.Add(1)
 	go func() {
-		task, ok := <-q.work
-		if !ok {
-			q.wg.Done()
-			return
+		for {
+			task, ok := <-q.work
+			if !ok {
+				q.wg.Done()
+				return
+			}
+
+			q.mu.Lock()
+			task.State = RUNNING
+			q.mu.Unlock()
+
+			err := task.Process()
+
+			q.mu.Lock()
+			task.Err = err
+			task.State = FINISHED
+			q.mu.Unlock()
 		}
-
-		q.mu.Lock()
-		task.State = RUNNING
-		q.mu.Unlock()
-
-		err := task.Process()
-
-		q.mu.Lock()
-		task.Err = err
-		task.State = FINISHED
-		q.mu.Unlock()
 	}()
 
 	return q
