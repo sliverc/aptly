@@ -36,9 +36,6 @@ type Queue struct {
 
 // Tasks gets list of all tasks (open, running and finished)
 func (q *Queue) Tasks() []*Task {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-
 	return q.tasks
 }
 
