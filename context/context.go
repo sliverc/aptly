@@ -9,6 +9,7 @@ import (
 	"github.com/smira/aptly/deb"
 	"github.com/smira/aptly/files"
 	"github.com/smira/aptly/http"
+	"github.com/smira/aptly/queue"
 	"github.com/smira/aptly/s3"
 	"github.com/smira/aptly/swift"
 	"github.com/smira/aptly/utils"
@@ -32,6 +33,7 @@ type AptlyContext struct {
 
 	progress          aptly.Progress
 	downloader        aptly.Downloader
+	queue             *queue.Queue
 	database          database.Storage
 	packagePool       aptly.PackagePool
 	publishedStorages map[string]aptly.PublishedStorage
@@ -205,6 +207,17 @@ func (context *AptlyContext) Downloader() aptly.Downloader {
 	}
 
 	return context.downloader
+}
+
+// Queue returns instance of current queue
+func (context *AptlyContext) Queue() *queue.Queue {
+	context.Lock()
+	defer context.Unlock()
+
+	if context.queue == nil {
+		context.queue = queue.New()
+	}
+	return context.queue
 }
 
 // DBPath builds path to database

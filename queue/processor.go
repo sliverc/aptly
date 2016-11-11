@@ -10,3 +10,13 @@ type Processor interface {
 type FuncProcessor struct {
 	fn func() error
 }
+
+// NewFuncProcessor creates new FuncProcessor with given func
+func NewFuncProcessor(fn func() error) *FuncProcessor {
+	return &FuncProcessor{fn}
+}
+
+// Process wraps function
+func (p *FuncProcessor) Process() error {
+	return p.fn()
+}

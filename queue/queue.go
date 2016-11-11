@@ -19,10 +19,10 @@ const (
 // Task represents as task in a queue encapsulates process code
 type Task struct {
 	Processor
-	name  string
-	id    int
-	err   error
-	state State
+	Name  string
+	ID    int
+	Err   error
+	State State
 }
 
 // Queue is handling list of processes and makes sure
@@ -30,8 +30,16 @@ type Task struct {
 type Queue struct {
 	mu    sync.Mutex
 	work  chan *Task
-	Tasks []*Task
+	tasks []*Task
 	wg    sync.WaitGroup
+}
+
+// Tasks gets list of all tasks (open, running and finished)
+func (q *Queue) Tasks() []*Task {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	return q.tasks
 }
 
 // New creates empty queue ready to be tasked
@@ -50,14 +58,14 @@ func New() *Queue {
 		}
 
 		q.mu.Lock()
-		task.state = RUNNING
+		task.State = RUNNING
 		q.mu.Unlock()
 
 		err := task.Process()
 
 		q.mu.Lock()
-		task.err = err
-		task.state = FINISHED
+		task.Err = err
+		task.State = FINISHED
 		q.mu.Unlock()
 	}()
 
@@ -65,18 +73,20 @@ func New() *Queue {
 }
 
 // Enqueue enqueues a new task with given name and processor logic
-func (q *Queue) Enqueue(name string, proc Processor) {
+func (q *Queue) Enqueue(name string, proc Processor) *Task {
 
 	q.mu.Lock()
 	task := &Task{
-		Processor: proc, name: name, id: len(q.Tasks) + 1, state: IDLE,
+		Processor: proc, Name: name, ID: len(q.tasks) + 1, State: IDLE,
 	}
-	q.Tasks = append(q.Tasks, task)
+	q.tasks = append(q.tasks, task)
 	q.mu.Unlock()
 
 	go func() {
 		q.work <- task
 	}()
+
+	return task
 }
 
 // Clear removes finished tasks from list
@@ -84,12 +94,12 @@ func (q *Queue) Clear() {
 	q.mu.Lock()
 
 	var tasks []*Task
-	for _, task := range q.Tasks {
-		if task.state != FINISHED {
+	for _, task := range q.tasks {
+		if task.State != FINISHED {
 			tasks = append(tasks, task)
 		}
 	}
-	q.Tasks = tasks
+	q.tasks = tasks
 
 	q.mu.Unlock()
 }
@@ -100,7 +110,7 @@ func (q *Queue) Close() {
 
 	close(q.work)
 	q.wg.Wait()
-	q.Tasks = make([]*Task, 0)
+	q.tasks = make([]*Task, 0)
 
 	q.mu.Unlock()
 }
