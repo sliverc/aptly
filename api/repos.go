@@ -45,16 +45,14 @@ func apiReposCreate(c *gin.Context) {
 	repo.DefaultDistribution = b.DefaultDistribution
 
 	collection := context.CollectionFactory().LocalRepoCollection()
-	collection.Lock()
-	defer collection.Unlock()
+	pushToQueue("Create repo " + b.Name, func() error {
+		collection.Lock()
+		defer collection.Unlock()
 
-	err := context.CollectionFactory().LocalRepoCollection().Add(repo)
-	if err != nil {
-		c.Fail(400, err)
-		return
-	}
+		return collection.Add(repo)
+	})
 
-	c.JSON(201, repo)
+	c.JSON(202, repo)
 }
 
 // PUT /api/repos/:name
