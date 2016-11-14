@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smira/aptly/queue"
 )
 
 // GET /queue
@@ -22,10 +21,10 @@ func apiQueueClear(c *gin.Context) {
 
 // POST /queue/test
 func apiQueueTest(c *gin.Context) {
-	proc := queue.NewFuncProcessor(func() error {
+	proc := func() error {
 		time.Sleep(1 * time.Minute)
 		return nil
-	})
+	}
 	context.Queue().Push("/queue/test/", proc)
 
 	c.JSON(202, gin.H{})

@@ -18,7 +18,7 @@ const (
 
 // Task represents as task in a queue encapsulates process code
 type Task struct {
-	Processor `json:"-"`
+	process func() error
 	Name      string
 	ID        int
 	Err       error `json:",omitempty"`
@@ -56,7 +56,7 @@ func New() *Queue {
 			task.State = RUNNING
 			q.mu.Unlock()
 
-			err := task.Process()
+			err := task.process()
 
 			q.mu.Lock()
 			task.Err = err
@@ -69,12 +69,12 @@ func New() *Queue {
 }
 
 // Push pushes a new task with given name and processor logic to queue
-func (q *Queue) Push(name string, proc Processor) *Task {
+func (q *Queue) Push(name string, process func() error) *Task {
 
 	q.mu.Lock()
 	q.idCounter++
 	task := &Task{
-		Processor: proc, Name: name, ID: q.idCounter, State: IDLE,
+		process: process, Name: name, ID: q.idCounter, State: IDLE,
 	}
 	q.Tasks = append(q.Tasks, task)
 	q.mu.Unlock()
