@@ -4,6 +4,9 @@ import (
 	"sync"
 )
 
+// TODO add unit test
+// TODO rewrite api that writable calls are done through queue
+
 // State task is in
 type State int
 
@@ -19,10 +22,10 @@ const (
 // Task represents as task in a queue encapsulates process code
 type Task struct {
 	process func() error
-	Name      string
-	ID        int
-	Err       error `json:",omitempty"`
-	State     State
+	Name    string
+	ID      int
+	Err     error `json:",omitempty"`
+	State   State
 }
 
 // Queue is handling list of processes and makes sure
@@ -31,7 +34,10 @@ type Queue struct {
 	mu        sync.Mutex
 	work      chan *Task
 	Tasks     []*Task
-	wg        sync.WaitGroup
+	// wait group to be able to close queue
+	wgQueue   sync.WaitGroup
+	// wait group for tasks to finish
+	wgTasks   sync.WaitGroup
 	idCounter int
 }
 
@@ -42,13 +48,13 @@ func New() *Queue {
 		Tasks: make([]*Task, 0),
 	}
 
-	// Start single worker of queue
-	q.wg.Add(1)
+	// Start single worker for queue
+	q.wgQueue.Add(1)
 	go func() {
 		for {
 			task, ok := <-q.work
 			if !ok {
-				q.wg.Done()
+				q.wgQueue.Done()
 				return
 			}
 
@@ -62,6 +68,8 @@ func New() *Queue {
 			task.Err = err
 			task.State = FINISHED
 			q.mu.Unlock()
+
+			q.wgTasks.Done()
 		}
 	}()
 
@@ -74,16 +82,22 @@ func (q *Queue) Push(name string, process func() error) *Task {
 	q.mu.Lock()
 	q.idCounter++
 	task := &Task{
-		process: process, Name: name, ID: q.idCounter, State: IDLE,
+		process: process, Name: name, ID: q.idCounter, State: IDLE, Err: nil,
 	}
 	q.Tasks = append(q.Tasks, task)
 	q.mu.Unlock()
 
+	q.wgTasks.Add(1)
 	go func() {
 		q.work <- task
 	}()
 
 	return task
+}
+
+// Wait waits till all tasks are done on queue
+func (q *Queue) Wait() {
+	q.wgTasks.Wait()
 }
 
 // Clear removes finished tasks from list
@@ -106,7 +120,7 @@ func (q *Queue) Close() {
 	q.mu.Lock()
 
 	close(q.work)
-	q.wg.Wait()
+	q.wgQueue.Wait()
 	q.Tasks = make([]*Task, 0)
 
 	q.mu.Unlock()

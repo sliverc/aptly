@@ -1,8 +1,6 @@
 package api
 
 import (
-	"time"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -19,13 +17,9 @@ func apiQueueClear(c *gin.Context) {
 	c.JSON(200, gin.H{})
 }
 
-// POST /queue/test
-func apiQueueTest(c *gin.Context) {
-	proc := func() error {
-		time.Sleep(1 * time.Minute)
-		return nil
-	}
-	context.Queue().Push("/queue/test/", proc)
-
-	c.JSON(202, gin.H{})
+// GET /queue/wait
+func apiQueueWait(c *gin.Context) {
+	queue := context.Queue()
+	queue.Wait()
+	c.JSON(200, gin.H{})
 }

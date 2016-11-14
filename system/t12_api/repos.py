@@ -15,7 +15,9 @@ class ReposAPITestCreateShow(APITest):
 
         resp = self.post("/api/repos", json={"Name": repo_name, "Comment": "fun repo"})
         self.check_equal(resp.json(), repo_desc)
-        self.check_equal(resp.status_code, 201)
+        self.check_equal(resp.status_code, 202)
+
+        self.get("/api/queue/wait")
 
         self.check_equal(self.get("/api/repos/" + repo_name).json(), repo_desc)
         self.check_equal(self.get("/api/repos/" + repo_name).status_code, 200)
