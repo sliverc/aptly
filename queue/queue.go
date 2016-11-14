@@ -19,25 +19,26 @@ const (
 // Task represents as task in a queue encapsulates process code
 type Task struct {
 	Processor `json:"-"`
-	Name  string
-	ID    int
-	Err   error `json:",omitempty"`
-	State State
+	Name      string
+	ID        int
+	Err       error `json:",omitempty"`
+	State     State
 }
 
 // Queue is handling list of processes and makes sure
 // only one process is executed at the time
 type Queue struct {
-	mu    sync.Mutex
-	work  chan *Task
-	Tasks []*Task
-	wg    sync.WaitGroup
+	mu        sync.Mutex
+	work      chan *Task
+	Tasks     []*Task
+	wg        sync.WaitGroup
+	idCounter int
 }
 
 // New creates empty queue ready to be tasked
 func New() *Queue {
 	q := &Queue{
-		work: make(chan *Task),
+		work:  make(chan *Task),
 		Tasks: make([]*Task, 0),
 	}
 
@@ -71,8 +72,9 @@ func New() *Queue {
 func (q *Queue) Push(name string, proc Processor) *Task {
 
 	q.mu.Lock()
+	q.idCounter++
 	task := &Task{
-		Processor: proc, Name: name, ID: len(q.Tasks) + 1, State: IDLE,
+		Processor: proc, Name: name, ID: q.idCounter, State: IDLE,
 	}
 	q.Tasks = append(q.Tasks, task)
 	q.mu.Unlock()
