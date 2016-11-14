@@ -26,7 +26,7 @@ func apiQueueTest(c *gin.Context) {
 		time.Sleep(1 * time.Minute)
 		return nil
 	})
-	context.Queue().Enqueue("/queue/test/", proc)
+	context.Queue().Push("/queue/test/", proc)
 
 	c.JSON(202, gin.H{})
 }

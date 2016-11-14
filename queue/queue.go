@@ -67,8 +67,8 @@ func New() *Queue {
 	return q
 }
 
-// Enqueue enqueues a new task with given name and processor logic
-func (q *Queue) Enqueue(name string, proc Processor) *Task {
+// Push pushes a new task with given name and processor logic to queue
+func (q *Queue) Push(name string, proc Processor) *Task {
 
 	q.mu.Lock()
 	task := &Task{
