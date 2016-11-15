@@ -164,6 +164,8 @@ func apiMirrorsDrop(c *gin.Context) {
 		c.Fail(500, fmt.Errorf("unable to drop: %s", err))
 		return
 	}
+
+	c.JSON(200, gin.H{})
 }
 
 // GET /api/mirrors/:name
