@@ -31,7 +31,7 @@ type Task struct {
 // Queue is handling list of processes and makes sure
 // only one process is executed at the time
 type Queue struct {
-	mu        sync.Mutex
+	*sync.Mutex
 	work      chan *Task
 	tasks     []*Task
 	// wait group to be able to close queue
@@ -58,16 +58,16 @@ func New() *Queue {
 				return
 			}
 
-			q.mu.Lock()
+			q.Lock()
 			task.State = RUNNING
-			q.mu.Unlock()
+			q.Unlock()
 
 			err := task.process()
 
-			q.mu.Lock()
+			q.Lock()
 			task.Err = err
 			task.State = FINISHED
-			q.mu.Unlock()
+			q.Unlock()
 
 			q.wgtasks.Done()
 		}
@@ -78,22 +78,22 @@ func New() *Queue {
 
 // GetTasks gets complete list of tasks
 func (q *Queue) GetTasks() []*Task {
-	q.mu.Lock()
+	q.Lock()
 	tasks := q.tasks
-	q.mu.Unlock()
+	q.Unlock()
 	return tasks
 }
 
 // Push pushes a new task with given name and processor logic to queue
 func (q *Queue) Push(name string, process func() error) *Task {
 
-	q.mu.Lock()
+	q.Lock()
 	q.idCounter++
 	task := &Task{
 		process: process, Name: name, ID: q.idCounter, State: IDLE, Err: nil,
 	}
 	q.tasks = append(q.tasks, task)
-	q.mu.Unlock()
+	q.Unlock()
 
 	q.wgtasks.Add(1)
 	go func() {
@@ -110,7 +110,7 @@ func (q *Queue) Wait() {
 
 // Clear removes finished tasks from list
 func (q *Queue) Clear() {
-	q.mu.Lock()
+	q.Lock()
 
 	var tasks []*Task
 	for _, task := range q.tasks {
@@ -120,16 +120,16 @@ func (q *Queue) Clear() {
 	}
 	q.tasks = tasks
 
-	q.mu.Unlock()
+	q.Unlock()
 }
 
 // Close stops running any additional tasks and waits still current tasks is finished
 func (q *Queue) Close() {
-	q.mu.Lock()
+	q.Lock()
 
 	close(q.work)
 	q.wgQueue.Wait()
 	q.tasks = make([]*Task, 0)
 
-	q.mu.Unlock()
+	q.Unlock()
 }
