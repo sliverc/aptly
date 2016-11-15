@@ -68,8 +68,8 @@ func apiReposEdit(c *gin.Context) {
 	}
 
 	collection := context.CollectionFactory().LocalRepoCollection()
-	collection.Lock()
-	defer collection.Unlock()
+	collection.RLock()
+	defer collection.RUnlock()
 
 	repo, err := collection.ByName(c.Params.ByName("name"))
 	if err != nil {
@@ -87,13 +87,15 @@ func apiReposEdit(c *gin.Context) {
 		repo.DefaultComponent = b.DefaultComponent
 	}
 
-	err = collection.Update(repo)
-	if err != nil {
-		c.Fail(500, err)
-		return
-	}
 
-	c.JSON(200, repo)
+	pushToQueue("Update repo " + repo.Name, func() error {
+		collection.Lock()
+		defer collection.Unlock()
+
+		return collection.Update(repo)
+	})
+
+	c.JSON(202, repo)
 }
 
 // GET /api/repos/:name
@@ -116,8 +118,8 @@ func apiReposDrop(c *gin.Context) {
 	force := c.Request.URL.Query().Get("force") == "1"
 
 	collection := context.CollectionFactory().LocalRepoCollection()
-	collection.Lock()
-	defer collection.Unlock()
+	collection.RLock()
+	defer collection.RUnlock()
 
 	snapshotCollection := context.CollectionFactory().SnapshotCollection()
 	snapshotCollection.RLock()
@@ -147,13 +149,14 @@ func apiReposDrop(c *gin.Context) {
 		}
 	}
 
-	err = collection.Drop(repo)
-	if err != nil {
-		c.Fail(500, err)
-		return
-	}
+	pushToQueue("Deleting repo " + repo.Name, func() error {
+		collection.Lock()
+		defer collection.Unlock()
 
-	c.JSON(200, gin.H{})
+		return collection.Drop(repo)
+	})
+
+	c.JSON(202, gin.H{})
 }
 
 // GET /api/repos/:name/packages
