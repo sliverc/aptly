@@ -46,8 +46,8 @@ func apiSnapshotsCreateFromMirror(c *gin.Context) {
 	}
 
 	collection := context.CollectionFactory().RemoteRepoCollection()
-	collection.RLock()
-	defer collection.RUnlock()
+	collection.Lock()
+	defer collection.Unlock()
 
 	snapshotCollection := context.CollectionFactory().SnapshotCollection()
 	snapshotCollection.Lock()

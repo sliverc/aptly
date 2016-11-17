@@ -23,8 +23,8 @@ func apiGraph(c *gin.Context) {
 	factory := context.CollectionFactory()
 
 	// TODO there should be a timeout here
-	factory.RemoteRepoCollection().RLock()
-	defer factory.RemoteRepoCollection().RUnlock()
+	factory.RemoteRepoCollection().Lock()
+	defer factory.RemoteRepoCollection().Unlock()
 	factory.LocalRepoCollection().Lock()
 	defer factory.LocalRepoCollection().Unlock()
 	factory.SnapshotCollection().Lock()
