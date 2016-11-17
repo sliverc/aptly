@@ -22,14 +22,15 @@ func apiGraph(c *gin.Context) {
 
 	factory := context.CollectionFactory()
 
+	// TODO there should be a timeout here
 	factory.RemoteRepoCollection().RLock()
 	defer factory.RemoteRepoCollection().RUnlock()
-	factory.LocalRepoCollection().RLock()
-	defer factory.LocalRepoCollection().RUnlock()
-	factory.SnapshotCollection().RLock()
-	defer factory.SnapshotCollection().RUnlock()
-	factory.PublishedRepoCollection().RLock()
-	defer factory.PublishedRepoCollection().RUnlock()
+	factory.LocalRepoCollection().Lock()
+	defer factory.LocalRepoCollection().Unlock()
+	factory.SnapshotCollection().Lock()
+	defer factory.SnapshotCollection().Unlock()
+	factory.PublishedRepoCollection().Lock()
+	defer factory.PublishedRepoCollection().Unlock()
 
 	graph, err := deb.BuildGraph(factory)
 	if err != nil {
