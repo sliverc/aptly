@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"time"
+	"errors"
 )
 
 // GET /api/graph.:ext
@@ -35,7 +36,7 @@ func apiGraph(c *gin.Context) {
 		publishedRepoCollection,
 	)
 	if !ok {
-		c.Fail(500, fmt.Errorf("Unable to build graph. Other process is locking resources."))
+		c.Fail(500, errors.New("Unable to build graph. Other process is locking resources."))
 		return
 	}
 	defer remoteRepoCollection.Unlock()

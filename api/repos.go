@@ -161,7 +161,7 @@ func apiReposPackagesShow(c *gin.Context) {
 	collection := context.CollectionFactory().LocalRepoCollection()
 	ok := collection.TryLock(2 * time.Second)
 	if !ok {
-		err := fmt.Errorf("Unable to read packages for %s. Other process is locking resource.", name)
+		err := fmt.Errorf("Unable to read packages of repo %s. Other process is locking resource.", name)
 		c.Fail(500, err)
 		return
 	}

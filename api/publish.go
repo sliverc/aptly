@@ -6,6 +6,8 @@ import (
 	"github.com/smira/aptly/deb"
 	"github.com/smira/aptly/utils"
 	"strings"
+	"time"
+	"errors"
 )
 
 // SigningOptions is a shared between publish API GPG options structure
@@ -49,17 +51,17 @@ func parseEscapedPath(path string) string {
 
 // GET /publish
 func apiPublishList(c *gin.Context) {
-	// TODO should get collection with timeout
 	localCollection := context.CollectionFactory().LocalRepoCollection()
-	localCollection.Lock()
-	defer localCollection.Unlock()
-
 	snapshotCollection := context.CollectionFactory().SnapshotCollection()
-	snapshotCollection.Lock()
-	defer snapshotCollection.Unlock()
-
 	collection := context.CollectionFactory().PublishedRepoCollection()
-	collection.Lock()
+
+	ok := deb.TryLockMutexes(2 * time.Second, localCollection, snapshotCollection, collection)
+	if !ok {
+		c.Fail(500, errors.New("Unable get published collections. Other process is locking resources"))
+		return
+	}
+	defer localCollection.Unlock()
+	defer snapshotCollection.Unlock()
 	defer collection.Unlock()
 
 	result := make([]*deb.PublishedRepo, 0, collection.Len())
