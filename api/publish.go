@@ -6,7 +6,6 @@ import (
 	"github.com/smira/aptly/deb"
 	"github.com/smira/aptly/utils"
 	"strings"
-	"time"
 	"errors"
 )
 
@@ -55,7 +54,7 @@ func apiPublishList(c *gin.Context) {
 	snapshotCollection := context.CollectionFactory().SnapshotCollection()
 	collection := context.CollectionFactory().PublishedRepoCollection()
 
-	ok := deb.TryLockMutexes(2 * time.Second, localCollection, snapshotCollection, collection)
+	ok := deb.TryLockMutexes(readTimeout, localCollection, snapshotCollection, collection)
 	if !ok {
 		c.Fail(500, errors.New("Unable get published collections. Other process is locking resources"))
 		return

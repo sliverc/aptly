@@ -9,7 +9,6 @@ import (
 	"mime"
 	"os"
 	"os/exec"
-	"time"
 	"errors"
 )
 
@@ -29,7 +28,7 @@ func apiGraph(c *gin.Context) {
 	snapshotCollection := factory.SnapshotCollection()
 	publishedRepoCollection := factory.PublishedRepoCollection()
 	ok := deb.TryLockMutexes(
-		2 * time.Second,
+		readTimeout,
 		remoteRepoCollection,
 		localRepoCollection,
 		snapshotCollection,

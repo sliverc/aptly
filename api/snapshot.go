@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"time"
 	"github.com/gin-gonic/gin"
 	"github.com/smira/aptly/database"
 	"github.com/smira/aptly/deb"
@@ -276,7 +275,7 @@ func apiSnapshotsUpdate(c *gin.Context) {
 func apiSnapshotsShow(c *gin.Context) {
 	name := c.Params.ByName("name")
 	collection := context.CollectionFactory().SnapshotCollection()
-	ok := collection.TryLock(2 * time.Second)
+	ok := collection.TryLock(readTimeout)
 	if !ok {
 		err := fmt.Errorf("Unable to read packages for snapshot %s. Other process is locking resource.", name)
 		c.Fail(500, err)
@@ -348,7 +347,7 @@ func apiSnapshotsDiff(c *gin.Context) {
 
 	name := c.Params.ByName("name")
 	collection := context.CollectionFactory().SnapshotCollection()
-	ok := collection.TryLock(2 * time.Second)
+	ok := collection.TryLock(readTimeout)
 	if !ok {
 		err := fmt.Errorf("Unable to read snapshot %s. Other process is locking resource.", name)
 		c.Fail(500, err)
@@ -404,7 +403,7 @@ func apiSnapshotsDiff(c *gin.Context) {
 func apiSnapshotsSearchPackages(c *gin.Context) {
 	name := c.Params.ByName("name")
 	collection := context.CollectionFactory().SnapshotCollection()
-	ok := collection.TryLock(2 * time.Second)
+	ok := collection.TryLock(readTimeout)
 	if !ok {
 		err := fmt.Errorf("Unable to read snapshot %s. Other process is locking resource.", name)
 		c.Fail(500, err)

@@ -9,7 +9,6 @@ import (
 	"github.com/smira/aptly/utils"
 	"os"
 	"path/filepath"
-	"time"
 )
 
 // GET /api/repos
@@ -159,7 +158,7 @@ func apiReposDrop(c *gin.Context) {
 func apiReposPackagesShow(c *gin.Context) {
 	name := c.Params.ByName("name")
 	collection := context.CollectionFactory().LocalRepoCollection()
-	ok := collection.TryLock(2 * time.Second)
+	ok := collection.TryLock(readTimeout)
 	if !ok {
 		err := fmt.Errorf("Unable to read packages of repo %s. Other process is locking resource.", name)
 		c.Fail(500, err)
