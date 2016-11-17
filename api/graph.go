@@ -9,6 +9,7 @@ import (
 	"mime"
 	"os"
 	"os/exec"
+	"time"
 )
 
 // GET /api/graph.:ext
@@ -22,15 +23,25 @@ func apiGraph(c *gin.Context) {
 
 	factory := context.CollectionFactory()
 
-	// TODO there should be a timeout here
-	factory.RemoteRepoCollection().Lock()
-	defer factory.RemoteRepoCollection().Unlock()
-	factory.LocalRepoCollection().Lock()
-	defer factory.LocalRepoCollection().Unlock()
-	factory.SnapshotCollection().Lock()
-	defer factory.SnapshotCollection().Unlock()
-	factory.PublishedRepoCollection().Lock()
-	defer factory.PublishedRepoCollection().Unlock()
+	remoteRepoCollection := factory.RemoteRepoCollection()
+	localRepoCollection := factory.LocalRepoCollection()
+	snapshotCollection := factory.SnapshotCollection()
+	publishedRepoCollection := factory.PublishedRepoCollection()
+	ok := deb.TryLockMutexes(
+		2 * time.Second,
+		remoteRepoCollection,
+		localRepoCollection,
+		snapshotCollection,
+		publishedRepoCollection,
+	)
+	if !ok {
+		c.Fail(500, fmt.Errorf("Unable to build graph. Other process is locking resources."))
+		return
+	}
+	defer remoteRepoCollection.Unlock()
+	defer localRepoCollection.Unlock()
+	defer snapshotCollection.Unlock()
+	defer publishedRepoCollection.Unlock()
 
 	graph, err := deb.BuildGraph(factory)
 	if err != nil {
