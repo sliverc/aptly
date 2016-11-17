@@ -94,13 +94,17 @@ type LocalRepoCollection struct {
 	*sync.RWMutex
 	db   database.Storage
 	list []*LocalRepo
+	// mutual exclusion for simple actions such as looping list and
+	// reading/updating simple Repo fields
+	SimpleMutex *sync.Mutex
 }
 
 // NewLocalRepoCollection loads LocalRepos from DB and makes up collection
 func NewLocalRepoCollection(db database.Storage) *LocalRepoCollection {
 	result := &LocalRepoCollection{
-		RWMutex: &sync.RWMutex{},
-		db:      db,
+		RWMutex:      &sync.RWMutex{},
+		db:           db,
+		SimpleMutex: &sync.Mutex{},
 	}
 
 	blobs := db.FetchByPrefix([]byte("L"))
@@ -120,7 +124,11 @@ func NewLocalRepoCollection(db database.Storage) *LocalRepoCollection {
 
 // Add appends new repo to collection and saves it
 func (collection *LocalRepoCollection) Add(repo *LocalRepo) error {
-	for _, r := range collection.list {
+	collection.SimpleMutex.Lock()
+	list := collection.list
+	collection.SimpleMutex.Unlock()
+
+	for _, r := range list {
 		if r.Name == repo.Name {
 			return fmt.Errorf("local repo with name %s already exists", repo.Name)
 		}
@@ -131,12 +139,28 @@ func (collection *LocalRepoCollection) Add(repo *LocalRepo) error {
 		return err
 	}
 
+	collection.SimpleMutex.Lock()
 	collection.list = append(collection.list, repo)
+	collection.SimpleMutex.Unlock()
 	return nil
 }
 
 // Update stores updated information about repo in DB
 func (collection *LocalRepoCollection) Update(repo *LocalRepo) error {
+	collection.SimpleMutex.Lock()
+	{
+		var list []*LocalRepo
+		copy(list, collection.list)
+		for i, r := range list {
+			if r.UUID == repo.UUID {
+				list[i] = repo
+				break
+			}
+		}
+		collection.list = list
+	}
+	collection.SimpleMutex.Unlock()
+
 	err := collection.db.Put(repo.Key(), repo.Encode())
 	if err != nil {
 		return err
@@ -165,29 +189,42 @@ func (collection *LocalRepoCollection) LoadComplete(repo *LocalRepo) error {
 }
 
 // ByName looks up repository by name
-func (collection *LocalRepoCollection) ByName(name string) (*LocalRepo, error) {
-	for _, r := range collection.list {
+func (collection *LocalRepoCollection) ByName(name string) (LocalRepo, error) {
+	collection.SimpleMutex.Lock()
+	list := collection.list
+	collection.SimpleMutex.Unlock()
+
+	for _, r := range list {
 		if r.Name == name {
-			return r, nil
+			return *r, nil
 		}
 	}
-	return nil, fmt.Errorf("local repo with name %s not found", name)
+	return LocalRepo{}, fmt.Errorf("local repo with name %s not found", name)
 }
 
 // ByUUID looks up repository by uuid
-func (collection *LocalRepoCollection) ByUUID(uuid string) (*LocalRepo, error) {
-	for _, r := range collection.list {
+func (collection *LocalRepoCollection) ByUUID(uuid string) (LocalRepo, error) {
+	collection.SimpleMutex.Lock()
+	list := collection.list
+	collection.SimpleMutex.Unlock()
+
+	for _, r := range list {
 		if r.UUID == uuid {
-			return r, nil
+			return *r, nil
 		}
 	}
-	return nil, fmt.Errorf("local repo with uuid %s not found", uuid)
+	return LocalRepo{}, fmt.Errorf("local repo with uuid %s not found", uuid)
 }
 
 // ForEach runs method for each repository
 func (collection *LocalRepoCollection) ForEach(handler func(*LocalRepo) error) error {
 	var err error
-	for _, r := range collection.list {
+
+	collection.SimpleMutex.Lock()
+	list := collection.list
+	collection.SimpleMutex.Unlock()
+
+	for _, r := range list {
 		err = handler(r)
 		if err != nil {
 			return err
@@ -198,11 +235,14 @@ func (collection *LocalRepoCollection) ForEach(handler func(*LocalRepo) error) e
 
 // Len returns number of remote repos
 func (collection *LocalRepoCollection) Len() int {
+	collection.SimpleMutex.Lock()
+	defer collection.SimpleMutex.Unlock()
 	return len(collection.list)
 }
 
 // Drop removes remote repo from collection
 func (collection *LocalRepoCollection) Drop(repo *LocalRepo) error {
+	collection.SimpleMutex.Lock()
 	repoPosition := -1
 
 	for i, r := range collection.list {
@@ -213,11 +253,13 @@ func (collection *LocalRepoCollection) Drop(repo *LocalRepo) error {
 	}
 
 	if repoPosition == -1 {
+		collection.SimpleMutex.Unlock()
 		panic("local repo not found!")
 	}
 
 	collection.list[len(collection.list)-1], collection.list[repoPosition], collection.list =
 		nil, collection.list[len(collection.list)-1], collection.list[:len(collection.list)-1]
+	collection.SimpleMutex.Unlock()
 
 	err := collection.db.Delete(repo.Key())
 	if err != nil {

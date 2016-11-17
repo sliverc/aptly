@@ -15,10 +15,6 @@ import (
 func apiReposList(c *gin.Context) {
 	result := []*deb.LocalRepo{}
 
-	collection := context.CollectionFactory().LocalRepoCollection()
-	collection.RLock()
-	defer collection.RUnlock()
-
 	context.CollectionFactory().LocalRepoCollection().ForEach(func(r *deb.LocalRepo) error {
 		result = append(result, r)
 		return nil
@@ -89,7 +85,7 @@ func apiReposEdit(c *gin.Context) {
 		repo.DefaultComponent = b.DefaultComponent
 	}
 
-	err = collection.Update(repo)
+	err = collection.Update(&repo)
 	if err != nil {
 		c.Fail(500, err)
 		return
@@ -135,21 +131,21 @@ func apiReposDrop(c *gin.Context) {
 		return
 	}
 
-	published := publishedCollection.ByLocalRepo(repo)
+	published := publishedCollection.ByLocalRepo(&repo)
 	if len(published) > 0 {
 		c.Fail(409, fmt.Errorf("unable to drop, local repo is published"))
 		return
 	}
 
 	if !force {
-		snapshots := snapshotCollection.ByLocalRepoSource(repo)
+		snapshots := snapshotCollection.ByLocalRepoSource(&repo)
 		if len(snapshots) > 0 {
 			c.Fail(409, fmt.Errorf("unable to drop, local repo has snapshots, use ?force=1 to override"))
 			return
 		}
 	}
 
-	err = collection.Drop(repo)
+	err = collection.Drop(&repo)
 	if err != nil {
 		c.Fail(500, err)
 		return
@@ -170,7 +166,7 @@ func apiReposPackagesShow(c *gin.Context) {
 		return
 	}
 
-	err = collection.LoadComplete(repo)
+	err = collection.LoadComplete(&repo)
 	if err != nil {
 		c.Fail(500, err)
 		return
@@ -199,7 +195,7 @@ func apiReposPackagesAddDelete(c *gin.Context, cb func(list *deb.PackageList, p 
 		return
 	}
 
-	err = collection.LoadComplete(repo)
+	err = collection.LoadComplete(&repo)
 	if err != nil {
 		c.Fail(500, err)
 		return
@@ -233,7 +229,7 @@ func apiReposPackagesAddDelete(c *gin.Context, cb func(list *deb.PackageList, p 
 
 	repo.UpdateRefList(deb.NewPackageRefListFromPackageList(list))
 
-	err = context.CollectionFactory().LocalRepoCollection().Update(repo)
+	err = context.CollectionFactory().LocalRepoCollection().Update(&repo)
 	if err != nil {
 		c.Fail(500, fmt.Errorf("unable to save: %s", err))
 		return
@@ -289,7 +285,7 @@ func apiReposPackageFromDir(c *gin.Context) {
 		return
 	}
 
-	err = collection.LoadComplete(repo)
+	err = collection.LoadComplete(&repo)
 	if err != nil {
 		c.Fail(500, err)
 		return
@@ -334,7 +330,7 @@ func apiReposPackageFromDir(c *gin.Context) {
 
 	repo.UpdateRefList(deb.NewPackageRefListFromPackageList(list))
 
-	err = context.CollectionFactory().LocalRepoCollection().Update(repo)
+	err = context.CollectionFactory().LocalRepoCollection().Update(&repo)
 	if err != nil {
 		c.Fail(500, fmt.Errorf("unable to save: %s", err))
 		return
