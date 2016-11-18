@@ -17,7 +17,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 )
@@ -613,7 +612,6 @@ func (repo *RemoteRepo) RefKey() []byte {
 
 // RemoteRepoCollection does listing, updating/adding/deleting of RemoteRepos
 type RemoteRepoCollection struct {
-	*sync.RWMutex
 	db   database.Storage
 	list []*RemoteRepo
 }
@@ -621,7 +619,6 @@ type RemoteRepoCollection struct {
 // NewRemoteRepoCollection loads RemoteRepos from DB and makes up collection
 func NewRemoteRepoCollection(db database.Storage) *RemoteRepoCollection {
 	result := &RemoteRepoCollection{
-		RWMutex: &sync.RWMutex{},
 		db:      db,
 	}
 
