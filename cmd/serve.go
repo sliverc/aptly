@@ -22,7 +22,8 @@ func aptlyServe(cmd *commander.Command, args []string) error {
 		return commander.ErrCommandError
 	}
 
-	if context.CollectionFactory().PublishedRepoCollection().Len() == 0 {
+	collectionFactory := context.NewCollectionFactory()
+	if collectionFactory.PublishedRepoCollection().Len() == 0 {
 		fmt.Printf("No published repositories, unable to serve.\n")
 		return nil
 	}
@@ -44,11 +45,11 @@ func aptlyServe(cmd *commander.Command, args []string) error {
 
 	fmt.Printf("Serving published repositories, recommended apt sources list:\n\n")
 
-	sources := make(sort.StringSlice, 0, context.CollectionFactory().PublishedRepoCollection().Len())
-	published := make(map[string]*deb.PublishedRepo, context.CollectionFactory().PublishedRepoCollection().Len())
+	sources := make(sort.StringSlice, 0, collectionFactory.PublishedRepoCollection().Len())
+	published := make(map[string]*deb.PublishedRepo, collectionFactory.PublishedRepoCollection().Len())
 
-	err = context.CollectionFactory().PublishedRepoCollection().ForEach(func(repo *deb.PublishedRepo) error {
-		err := context.CollectionFactory().PublishedRepoCollection().LoadComplete(repo, context.CollectionFactory())
+	err = collectionFactory.PublishedRepoCollection().ForEach(func(repo *deb.PublishedRepo) error {
+		err := collectionFactory.PublishedRepoCollection().LoadComplete(repo, collectionFactory)
 		if err != nil {
 			return err
 		}

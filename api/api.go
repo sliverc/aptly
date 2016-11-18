@@ -8,7 +8,6 @@ import (
 	"github.com/smira/aptly/deb"
 	"github.com/smira/aptly/query"
 	"sort"
-	"time"
 )
 
 // Lock order acquisition (canonical):
@@ -26,49 +25,6 @@ const (
 	ACQUIREDB = iota
 	RELEASEDB
 )
-
-// Flushes all collections which cache in-memory objects
-func flushColections() {
-	// lock everything to eliminate in-progress calls
-	r := context.CollectionFactory().RemoteRepoCollection()
-	r.Lock()
-	defer r.Unlock()
-
-	l := context.CollectionFactory().LocalRepoCollection()
-	l.Lock()
-	defer l.Unlock()
-
-	s := context.CollectionFactory().SnapshotCollection()
-	s.Lock()
-	defer s.Unlock()
-
-	p := context.CollectionFactory().PublishedRepoCollection()
-	p.Lock()
-	defer p.Unlock()
-
-	// all collections locked, flush them
-	context.CollectionFactory().Flush()
-}
-
-// Periodically flushes CollectionFactory to free up memory used by
-// collections, flushing caches. If the two channels are provided,
-// they are used to acquire and release the database.
-//
-// Should be run in goroutine!
-func cacheFlusher(requests chan int, acks chan error) {
-	ticker := time.Tick(15 * time.Minute)
-
-	for {
-		<-ticker
-
-		// if aptly API runs in -no-lock mode,
-		// caches are flushed when DB is closed anyway, no need
-		// to flush them here
-		if requests == nil {
-			flushColections()
-		}
-	}
-}
 
 // Acquire database lock and release it when not needed anymore. Two
 // channels must be provided. The first one is to receive requests to
@@ -90,7 +46,6 @@ func acquireDatabase(requests chan int, acks chan error) {
 		case RELEASEDB:
 			clients--
 			if clients == 0 {
-				flushColections()
 				acks <- context.CloseDatabase()
 			} else {
 				acks <- nil
@@ -101,10 +56,10 @@ func acquireDatabase(requests chan int, acks chan error) {
 
 // Common piece of code to show list of packages,
 // with searching & details if requested
-func showPackages(c *gin.Context, reflist *deb.PackageRefList) {
+func showPackages(c *gin.Context, reflist *deb.PackageRefList, collectionFactory *deb.CollectionFactory) {
 	result := []*deb.Package{}
 
-	list, err := deb.NewPackageListFromRefList(reflist, context.CollectionFactory().PackageCollection(), nil)
+	list, err := deb.NewPackageListFromRefList(reflist, collectionFactory.PackageCollection(), nil)
 	if err != nil {
 		c.Fail(404, err)
 		return

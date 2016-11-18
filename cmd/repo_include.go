@@ -35,6 +35,8 @@ func aptlyRepoInclude(cmd *commander.Command, args []string) error {
 	ignoreSignatures := context.Flags().Lookup("ignore-signatures").Value.Get().(bool)
 	noRemoveFiles := context.Flags().Lookup("no-remove-files").Value.Get().(bool)
 
+	collectionFactory := context.NewCollectionFactory()
+
 	repoTemplate, err := template.New("repo").Parse(context.Flags().Lookup("repo").Value.Get().(string))
 	if err != nil {
 		return fmt.Errorf("error parsing -repo template: %s", err)
@@ -96,7 +98,7 @@ func aptlyRepoInclude(cmd *commander.Command, args []string) error {
 
 		context.Progress().Printf("Loading repository %s for changes file %s...\n", repoName.String(), changes.ChangesName)
 
-		repo, err := context.CollectionFactory().LocalRepoCollection().ByName(repoName.String())
+		repo, err := collectionFactory.LocalRepoCollection().ByName(repoName.String())
 		if err != nil {
 			failedFiles = append(failedFiles, path)
 			reporter.Warning("unable to process file %s: %s", changes.ChangesName, err)
@@ -125,12 +127,12 @@ func aptlyRepoInclude(cmd *commander.Command, args []string) error {
 			}
 		}
 
-		err = context.CollectionFactory().LocalRepoCollection().LoadComplete(repo)
+		err = collectionFactory.LocalRepoCollection().LoadComplete(repo)
 		if err != nil {
 			return fmt.Errorf("unable to load repo: %s", err)
 		}
 
-		list, err := deb.NewPackageListFromRefList(repo.RefList(), context.CollectionFactory().PackageCollection(), context.Progress())
+		list, err := deb.NewPackageListFromRefList(repo.RefList(), collectionFactory.PackageCollection(), context.Progress())
 		if err != nil {
 			return fmt.Errorf("unable to load packages: %s", err)
 		}
@@ -150,7 +152,7 @@ func aptlyRepoInclude(cmd *commander.Command, args []string) error {
 		var processedFiles2, failedFiles2 []string
 
 		processedFiles2, failedFiles2, err = deb.ImportPackageFiles(list, packageFiles, forceReplace, verifier, context.PackagePool(),
-			context.CollectionFactory().PackageCollection(), reporter, restriction)
+			collectionFactory.PackageCollection(), reporter, restriction)
 
 		if err != nil {
 			return fmt.Errorf("unable to import package files: %s", err)
@@ -158,7 +160,7 @@ func aptlyRepoInclude(cmd *commander.Command, args []string) error {
 
 		repo.UpdateRefList(deb.NewPackageRefListFromPackageList(list))
 
-		err = context.CollectionFactory().LocalRepoCollection().Update(repo)
+		err = collectionFactory.LocalRepoCollection().Update(repo)
 		if err != nil {
 			return fmt.Errorf("unable to save: %s", err)
 		}

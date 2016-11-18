@@ -11,9 +11,9 @@ import (
 	"github.com/smira/flag"
 )
 
-func printReferencesTo(p *deb.Package) (err error) {
-	err = context.CollectionFactory().RemoteRepoCollection().ForEach(func(repo *deb.RemoteRepo) error {
-		err := context.CollectionFactory().RemoteRepoCollection().LoadComplete(repo)
+func printReferencesTo(p *deb.Package, collectionFactory *deb.CollectionFactory) (err error) {
+	err = collectionFactory.RemoteRepoCollection().ForEach(func(repo *deb.RemoteRepo) error {
+		err := collectionFactory.RemoteRepoCollection().LoadComplete(repo)
 		if err != nil {
 			return err
 		}
@@ -28,8 +28,8 @@ func printReferencesTo(p *deb.Package) (err error) {
 		return err
 	}
 
-	err = context.CollectionFactory().LocalRepoCollection().ForEach(func(repo *deb.LocalRepo) error {
-		err := context.CollectionFactory().LocalRepoCollection().LoadComplete(repo)
+	err = collectionFactory.LocalRepoCollection().ForEach(func(repo *deb.LocalRepo) error {
+		err := collectionFactory.LocalRepoCollection().LoadComplete(repo)
 		if err != nil {
 			return err
 		}
@@ -44,8 +44,8 @@ func printReferencesTo(p *deb.Package) (err error) {
 		return err
 	}
 
-	err = context.CollectionFactory().SnapshotCollection().ForEach(func(snapshot *deb.Snapshot) error {
-		err := context.CollectionFactory().SnapshotCollection().LoadComplete(snapshot)
+	err = collectionFactory.SnapshotCollection().ForEach(func(snapshot *deb.Snapshot) error {
+		err := collectionFactory.SnapshotCollection().LoadComplete(snapshot)
 		if err != nil {
 			return err
 		}
@@ -78,7 +78,8 @@ func aptlyPackageShow(cmd *commander.Command, args []string) error {
 
 	w := bufio.NewWriter(os.Stdout)
 
-	result := q.Query(context.CollectionFactory().PackageCollection())
+	collectionFactory := context.NewCollectionFactory()
+	result := q.Query(collectionFactory.PackageCollection())
 
 	err = result.ForEach(func(p *deb.Package) error {
 		p.Stanza().WriteTo(w, p.IsSource, false)
@@ -99,7 +100,7 @@ func aptlyPackageShow(cmd *commander.Command, args []string) error {
 
 		if withReferences {
 			fmt.Printf("References to package:\n")
-			printReferencesTo(p)
+			printReferencesTo(p, collectionFactory)
 			fmt.Printf("\n")
 		}
 

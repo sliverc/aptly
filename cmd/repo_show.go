@@ -15,12 +15,13 @@ func aptlyRepoShow(cmd *commander.Command, args []string) error {
 
 	name := args[0]
 
-	repo, err := context.CollectionFactory().LocalRepoCollection().ByName(name)
+	collectionFactory := context.NewCollectionFactory()
+	repo, err := collectionFactory.LocalRepoCollection().ByName(name)
 	if err != nil {
 		return fmt.Errorf("unable to show: %s", err)
 	}
 
-	err = context.CollectionFactory().LocalRepoCollection().LoadComplete(repo)
+	err = collectionFactory.LocalRepoCollection().LoadComplete(repo)
 	if err != nil {
 		return fmt.Errorf("unable to show: %s", err)
 	}
@@ -36,7 +37,7 @@ func aptlyRepoShow(cmd *commander.Command, args []string) error {
 
 	withPackages := context.Flags().Lookup("with-packages").Value.Get().(bool)
 	if withPackages {
-		ListPackagesRefList(repo.RefList())
+		ListPackagesRefList(repo.RefList(), collectionFactory)
 	}
 
 	return err

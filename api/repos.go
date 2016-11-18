@@ -15,11 +15,9 @@ import (
 func apiReposList(c *gin.Context) {
 	result := []*deb.LocalRepo{}
 
-	collection := context.CollectionFactory().LocalRepoCollection()
-	collection.RLock()
-	defer collection.RUnlock()
-
-	context.CollectionFactory().LocalRepoCollection().ForEach(func(r *deb.LocalRepo) error {
+	collectionFactory := context.NewCollectionFactory()
+	collection := collectionFactory.LocalRepoCollection()
+	collection.ForEach(func(r *deb.LocalRepo) error {
 		result = append(result, r)
 		return nil
 	})
@@ -44,11 +42,9 @@ func apiReposCreate(c *gin.Context) {
 	repo.DefaultComponent = b.DefaultComponent
 	repo.DefaultDistribution = b.DefaultDistribution
 
-	collection := context.CollectionFactory().LocalRepoCollection()
-	collection.Lock()
-	defer collection.Unlock()
-
-	err := context.CollectionFactory().LocalRepoCollection().Add(repo)
+	collectionFactory := context.NewCollectionFactory()
+	collection := collectionFactory.LocalRepoCollection()
+	err := collection.Add(repo)
 	if err != nil {
 		c.Fail(400, err)
 		return
@@ -69,9 +65,8 @@ func apiReposEdit(c *gin.Context) {
 		return
 	}
 
-	collection := context.CollectionFactory().LocalRepoCollection()
-	collection.Lock()
-	defer collection.Unlock()
+	collectionFactory := context.NewCollectionFactory()
+	collection := collectionFactory.LocalRepoCollection()
 
 	repo, err := collection.ByName(c.Params.ByName("name"))
 	if err != nil {
@@ -100,9 +95,8 @@ func apiReposEdit(c *gin.Context) {
 
 // GET /api/repos/:name
 func apiReposShow(c *gin.Context) {
-	collection := context.CollectionFactory().LocalRepoCollection()
-	collection.RLock()
-	defer collection.RUnlock()
+	collectionFactory := context.NewCollectionFactory()
+	collection := collectionFactory.LocalRepoCollection()
 
 	repo, err := collection.ByName(c.Params.ByName("name"))
 	if err != nil {
@@ -117,17 +111,10 @@ func apiReposShow(c *gin.Context) {
 func apiReposDrop(c *gin.Context) {
 	force := c.Request.URL.Query().Get("force") == "1"
 
-	collection := context.CollectionFactory().LocalRepoCollection()
-	collection.Lock()
-	defer collection.Unlock()
-
-	snapshotCollection := context.CollectionFactory().SnapshotCollection()
-	snapshotCollection.RLock()
-	defer snapshotCollection.RUnlock()
-
-	publishedCollection := context.CollectionFactory().PublishedRepoCollection()
-	publishedCollection.RLock()
-	defer publishedCollection.RUnlock()
+	collectionFactory := context.NewCollectionFactory()
+	collection := collectionFactory.LocalRepoCollection()
+	snapshotCollection := collectionFactory.SnapshotCollection()
+	publishedCollection := collectionFactory.PublishedRepoCollection()
 
 	repo, err := collection.ByName(c.Params.ByName("name"))
 	if err != nil {
@@ -160,9 +147,8 @@ func apiReposDrop(c *gin.Context) {
 
 // GET /api/repos/:name/packages
 func apiReposPackagesShow(c *gin.Context) {
-	collection := context.CollectionFactory().LocalRepoCollection()
-	collection.RLock()
-	defer collection.RUnlock()
+	collectionFactory := context.NewCollectionFactory()
+	collection := collectionFactory.LocalRepoCollection()
 
 	repo, err := collection.ByName(c.Params.ByName("name"))
 	if err != nil {
@@ -176,7 +162,7 @@ func apiReposPackagesShow(c *gin.Context) {
 		return
 	}
 
-	showPackages(c, repo.RefList())
+	showPackages(c, repo.RefList(), collectionFactory)
 }
 
 // Handler for both add and delete
@@ -189,9 +175,8 @@ func apiReposPackagesAddDelete(c *gin.Context, cb func(list *deb.PackageList, p 
 		return
 	}
 
-	collection := context.CollectionFactory().LocalRepoCollection()
-	collection.Lock()
-	defer collection.Unlock()
+	collectionFactory := context.NewCollectionFactory()
+	collection := collectionFactory.LocalRepoCollection()
 
 	repo, err := collection.ByName(c.Params.ByName("name"))
 	if err != nil {
@@ -205,7 +190,7 @@ func apiReposPackagesAddDelete(c *gin.Context, cb func(list *deb.PackageList, p 
 		return
 	}
 
-	list, err := deb.NewPackageListFromRefList(repo.RefList(), context.CollectionFactory().PackageCollection(), nil)
+	list, err := deb.NewPackageListFromRefList(repo.RefList(), collectionFactory.PackageCollection(), nil)
 	if err != nil {
 		c.Fail(500, err)
 		return
@@ -215,7 +200,7 @@ func apiReposPackagesAddDelete(c *gin.Context, cb func(list *deb.PackageList, p 
 	for _, ref := range b.PackageRefs {
 		var p *deb.Package
 
-		p, err = context.CollectionFactory().PackageCollection().ByKey([]byte(ref))
+		p, err = collectionFactory.PackageCollection().ByKey([]byte(ref))
 		if err != nil {
 			if err == database.ErrNotFound {
 				c.Fail(404, fmt.Errorf("package %s: %s", ref, err))
@@ -233,7 +218,7 @@ func apiReposPackagesAddDelete(c *gin.Context, cb func(list *deb.PackageList, p 
 
 	repo.UpdateRefList(deb.NewPackageRefListFromPackageList(list))
 
-	err = context.CollectionFactory().LocalRepoCollection().Update(repo)
+	err = collectionFactory.LocalRepoCollection().Update(repo)
 	if err != nil {
 		c.Fail(500, fmt.Errorf("unable to save: %s", err))
 		return
@@ -279,9 +264,8 @@ func apiReposPackageFromDir(c *gin.Context) {
 		return
 	}
 
-	collection := context.CollectionFactory().LocalRepoCollection()
-	collection.Lock()
-	defer collection.Unlock()
+	collectionFactory := context.NewCollectionFactory()
+	collection := collectionFactory.LocalRepoCollection()
 
 	repo, err := collection.ByName(c.Params.ByName("name"))
 	if err != nil {
@@ -317,14 +301,14 @@ func apiReposPackageFromDir(c *gin.Context) {
 
 	packageFiles, failedFiles = deb.CollectPackageFiles(sources, reporter)
 
-	list, err = deb.NewPackageListFromRefList(repo.RefList(), context.CollectionFactory().PackageCollection(), nil)
+	list, err = deb.NewPackageListFromRefList(repo.RefList(), collectionFactory.PackageCollection(), nil)
 	if err != nil {
 		c.Fail(500, fmt.Errorf("unable to load packages: %s", err))
 		return
 	}
 
 	processedFiles, failedFiles2, err = deb.ImportPackageFiles(list, packageFiles, forceReplace, verifier, context.PackagePool(),
-		context.CollectionFactory().PackageCollection(), reporter, nil)
+		collectionFactory.PackageCollection(), reporter, nil)
 	failedFiles = append(failedFiles, failedFiles2...)
 
 	if err != nil {
@@ -334,7 +318,7 @@ func apiReposPackageFromDir(c *gin.Context) {
 
 	repo.UpdateRefList(deb.NewPackageRefListFromPackageList(list))
 
-	err = context.CollectionFactory().LocalRepoCollection().Update(repo)
+	err = collectionFactory.LocalRepoCollection().Update(repo)
 	if err != nil {
 		c.Fail(500, fmt.Errorf("unable to save: %s", err))
 		return

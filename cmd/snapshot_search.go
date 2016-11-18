@@ -18,40 +18,41 @@ func aptlySnapshotMirrorRepoSearch(cmd *commander.Command, args []string) error 
 
 	name := args[0]
 	command := cmd.Parent.Name()
+	collectionFactory := context.NewCollectionFactory()
 
 	var reflist *deb.PackageRefList
 
 	if command == "snapshot" {
-		snapshot, err := context.CollectionFactory().SnapshotCollection().ByName(name)
+		snapshot, err := collectionFactory.SnapshotCollection().ByName(name)
 		if err != nil {
 			return fmt.Errorf("unable to search: %s", err)
 		}
 
-		err = context.CollectionFactory().SnapshotCollection().LoadComplete(snapshot)
+		err = collectionFactory.SnapshotCollection().LoadComplete(snapshot)
 		if err != nil {
 			return fmt.Errorf("unable to search: %s", err)
 		}
 
 		reflist = snapshot.RefList()
 	} else if command == "mirror" {
-		repo, err := context.CollectionFactory().RemoteRepoCollection().ByName(name)
+		repo, err := collectionFactory.RemoteRepoCollection().ByName(name)
 		if err != nil {
 			return fmt.Errorf("unable to search: %s", err)
 		}
 
-		err = context.CollectionFactory().RemoteRepoCollection().LoadComplete(repo)
+		err = collectionFactory.RemoteRepoCollection().LoadComplete(repo)
 		if err != nil {
 			return fmt.Errorf("unable to search: %s", err)
 		}
 
 		reflist = repo.RefList()
 	} else if command == "repo" {
-		repo, err := context.CollectionFactory().LocalRepoCollection().ByName(name)
+		repo, err := collectionFactory.LocalRepoCollection().ByName(name)
 		if err != nil {
 			return fmt.Errorf("unable to search: %s", err)
 		}
 
-		err = context.CollectionFactory().LocalRepoCollection().LoadComplete(repo)
+		err = collectionFactory.LocalRepoCollection().LoadComplete(repo)
 		if err != nil {
 			return fmt.Errorf("unable to search: %s", err)
 		}
@@ -61,7 +62,7 @@ func aptlySnapshotMirrorRepoSearch(cmd *commander.Command, args []string) error 
 		panic("unknown command")
 	}
 
-	list, err := deb.NewPackageListFromRefList(reflist, context.CollectionFactory().PackageCollection(), context.Progress())
+	list, err := deb.NewPackageListFromRefList(reflist, collectionFactory.PackageCollection(), context.Progress())
 	if err != nil {
 		return fmt.Errorf("unable to search: %s", err)
 	}

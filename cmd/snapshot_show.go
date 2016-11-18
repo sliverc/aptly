@@ -14,13 +14,14 @@ func aptlySnapshotShow(cmd *commander.Command, args []string) error {
 	}
 
 	name := args[0]
+	collectionFactory := context.NewCollectionFactory()
 
-	snapshot, err := context.CollectionFactory().SnapshotCollection().ByName(name)
+	snapshot, err := collectionFactory.SnapshotCollection().ByName(name)
 	if err != nil {
 		return fmt.Errorf("unable to show: %s", err)
 	}
 
-	err = context.CollectionFactory().SnapshotCollection().LoadComplete(snapshot)
+	err = collectionFactory.SnapshotCollection().LoadComplete(snapshot)
 	if err != nil {
 		return fmt.Errorf("unable to show: %s", err)
 	}
@@ -32,7 +33,7 @@ func aptlySnapshotShow(cmd *commander.Command, args []string) error {
 
 	withPackages := context.Flags().Lookup("with-packages").Value.Get().(bool)
 	if withPackages {
-		ListPackagesRefList(snapshot.RefList())
+		ListPackagesRefList(snapshot.RefList(), collectionFactory)
 	}
 
 	return err

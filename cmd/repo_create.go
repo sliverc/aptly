@@ -26,7 +26,8 @@ func aptlyRepoCreate(cmd *commander.Command, args []string) error {
 		}
 	}
 
-	err = context.CollectionFactory().LocalRepoCollection().Add(repo)
+	collectionFactory := context.NewCollectionFactory()
+	err = collectionFactory.LocalRepoCollection().Add(repo)
 	if err != nil {
 		return fmt.Errorf("unable to add local repo: %s", err)
 	}

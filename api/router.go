@@ -23,7 +23,6 @@ func Router(c *ctx.AptlyContext) http.Handler {
 		acks := make(chan error)
 
 		go acquireDatabase(requests, acks)
-		go cacheFlusher(requests, acks)
 
 		router.Use(func(c *gin.Context) {
 			requests <- ACQUIREDB
@@ -42,9 +41,6 @@ func Router(c *ctx.AptlyContext) http.Handler {
 			}()
 			c.Next()
 		})
-
-	} else {
-		go cacheFlusher(nil, nil)
 	}
 
 	root := router.Group("/api")
