@@ -134,6 +134,8 @@ func (collection *LocalRepoCollection) Add(repo *LocalRepo) error {
 
 // Update stores updated information about repo in DB
 func (collection *LocalRepoCollection) Update(repo *LocalRepo) error {
+	collection.db.StartBatch()
+	defer collection.db.ResetBatch()
 	err := collection.db.Put(repo.Key(), repo.Encode())
 	if err != nil {
 		return err
@@ -144,7 +146,7 @@ func (collection *LocalRepoCollection) Update(repo *LocalRepo) error {
 			return err
 		}
 	}
-	return nil
+	return collection.db.FinishBatch()
 }
 
 // LoadComplete loads additional information for local repo
@@ -216,10 +218,17 @@ func (collection *LocalRepoCollection) Drop(repo *LocalRepo) error {
 	collection.list[len(collection.list)-1], collection.list[repoPosition], collection.list =
 		nil, collection.list[len(collection.list)-1], collection.list[:len(collection.list)-1]
 
+	collection.db.StartBatch()
+	defer collection.db.ResetBatch()
 	err := collection.db.Delete(repo.Key())
 	if err != nil {
 		return err
 	}
 
-	return collection.db.Delete(repo.RefKey())
+	err = collection.db.Delete(repo.RefKey())
+	if err != nil {
+		return err
+	}
+
+	return collection.db.FinishBatch()
 }

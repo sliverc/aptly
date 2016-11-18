@@ -26,6 +26,7 @@ type Storage interface {
 	Close() error
 	ReOpen() error
 	StartBatch()
+	ResetBatch()
 	FinishBatch() error
 	CompactDB() error
 }
@@ -181,6 +182,11 @@ func (l *levelDB) StartBatch() {
 		panic("batch already started")
 	}
 	l.batch = new(leveldb.Batch)
+}
+
+// ResetBatch reverts current batch
+func (l *levelDB) ResetBatch() {
+	l.batch = nil
 }
 
 // FinishBatch finalizes the batch, saving operations
