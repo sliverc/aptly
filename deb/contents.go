@@ -37,21 +37,16 @@ func (index *ContentsIndex) Key(path string, pkg string) []byte {
 func (index *ContentsIndex) Push(p *Package, packagePool aptly.PackagePool) error {
 	contents := p.Contents(packagePool)
 
-	index.db.StartBatch()
-	defer index.db.FinishBatch()
+	batch := index.db.StartBatch()
 
 	for _, path := range contents {
 		// for performance reasons we only write to leveldb during push.
 		// Merging of qualified names per path will be done in WriteTo
 		key := index.Key(path, p.QualifiedName())
-
-		err := index.db.Put(key, nil)
-		if err != nil {
-			return err
-		}
+		batch.Put(key, nil)
 	}
 
-	return nil
+	return index.db.FinishBatch(batch)
 }
 
 // Empty checks whether index contains no packages
