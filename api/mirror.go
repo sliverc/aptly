@@ -31,9 +31,8 @@ func getVerifier(ignoreSignatures bool, keyRings []string) (utils.Verifier, erro
 
 // GET /api/mirrors
 func apiMirrorsList(c *gin.Context) {
-	collection := context.CollectionFactory().RemoteRepoCollection()
-	collection.RLock()
-	defer collection.RUnlock()
+	collectionFactory := context.NewCollectionFactory()
+	collection := collectionFactory.RemoteRepoCollection()
 
 	result := []*deb.RemoteRepo{}
 	collection.ForEach(func(repo *deb.RemoteRepo) error {
@@ -70,9 +69,8 @@ func apiMirrorsCreate(c *gin.Context) {
 		return
 	}
 
-	collection := context.CollectionFactory().RemoteRepoCollection()
-	collection.Lock()
-	defer collection.Unlock()
+	collectionFactory := context.NewCollectionFactory()
+	collection := collectionFactory.RemoteRepoCollection()
 
 	if strings.HasPrefix(b.ArchiveURL, "ppa:") {
 		b.ArchiveURL, b.Distribution, b.Components, err = deb.ParsePPA(b.ArchiveURL, context.Config())
@@ -130,13 +128,9 @@ func apiMirrorsDrop(c *gin.Context) {
 	name := c.Params.ByName("name")
 	force := c.Request.URL.Query().Get("force") == "1"
 
-	mirrorCollection := context.CollectionFactory().RemoteRepoCollection()
-	mirrorCollection.Lock()
-	defer mirrorCollection.Unlock()
-
-	snapshotCollection := context.CollectionFactory().SnapshotCollection()
-	snapshotCollection.Lock()
-	defer snapshotCollection.Unlock()
+	collectionFactory := context.NewCollectionFactory()
+	mirrorCollection := collectionFactory.RemoteRepoCollection()
+	snapshotCollection := collectionFactory.SnapshotCollection()
 
 	repo, err := mirrorCollection.ByName(name)
 	if err != nil {
@@ -170,9 +164,8 @@ func apiMirrorsDrop(c *gin.Context) {
 
 // GET /api/mirrors/:name
 func apiMirrorsShow(c *gin.Context) {
-	collection := context.CollectionFactory().RemoteRepoCollection()
-	collection.RLock()
-	defer collection.RUnlock()
+	collectionFactory := context.NewCollectionFactory()
+	collection := collectionFactory.RemoteRepoCollection()
 
 	name := c.Params.ByName("name")
 	repo, err := collection.ByName(name)
@@ -191,9 +184,8 @@ func apiMirrorsShow(c *gin.Context) {
 
 // GET /api/mirrors/:name/packages
 func apiMirrorsPackages(c *gin.Context) {
-	collection := context.CollectionFactory().RemoteRepoCollection()
-	collection.RLock()
-	defer collection.RUnlock()
+	collectionFactory := context.NewCollectionFactory()
+	collection := collectionFactory.RemoteRepoCollection()
 
 	name := c.Params.ByName("name")
 	repo, err := collection.ByName(name)
@@ -215,7 +207,7 @@ func apiMirrorsPackages(c *gin.Context) {
 	reflist := repo.RefList()
 	result := []*deb.Package{}
 
-	list, err := deb.NewPackageListFromRefList(reflist, context.CollectionFactory().PackageCollection(), context.Progress())
+	list, err := deb.NewPackageListFromRefList(reflist, collectionFactory.PackageCollection(), context.Progress())
 	if err != nil {
 		c.Fail(404, err)
 		return
@@ -291,9 +283,8 @@ func apiMirrorsUpdate(c *gin.Context) {
 		DownloadLimit       int64
 	}
 
-	collection := context.CollectionFactory().RemoteRepoCollection()
-	collection.Lock()
-	defer collection.Unlock()
+	collectionFactory := context.NewCollectionFactory()
+	collection := collectionFactory.RemoteRepoCollection()
 
 	remote, err = collection.ByName(c.Params.ByName("name"))
 	if err != nil {
@@ -359,7 +350,7 @@ func apiMirrorsUpdate(c *gin.Context) {
 		}
 	}
 
-	err = remote.DownloadPackageIndexes(context.Progress(), downloader, context.CollectionFactory(), b.SkipComponentCheck)
+	err = remote.DownloadPackageIndexes(context.Progress(), downloader, collectionFactory, b.SkipComponentCheck)
 	if err != nil {
 		c.Fail(400, fmt.Errorf("unable to update: %s", err))
 		return
