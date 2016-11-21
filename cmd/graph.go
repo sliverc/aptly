@@ -22,7 +22,8 @@ func aptlyGraph(cmd *commander.Command, args []string) error {
 	}
 
 	fmt.Printf("Generating graph...\n")
-	graph, err := deb.BuildGraph(context.CollectionFactory())
+	collectionFactory := context.NewCollectionFactory()
+	graph, err := deb.BuildGraph(collectionFactory)
 	if err != nil {
 		return err
 	}

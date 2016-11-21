@@ -14,7 +14,7 @@ import (
 )
 
 // ListPackagesRefList shows list of packages in PackageRefList
-func ListPackagesRefList(reflist *deb.PackageRefList) (err error) {
+func ListPackagesRefList(reflist *deb.PackageRefList, collectionFactory *deb.CollectionFactory) (err error) {
 	fmt.Printf("Packages:\n")
 
 	if reflist == nil {
@@ -22,7 +22,7 @@ func ListPackagesRefList(reflist *deb.PackageRefList) (err error) {
 	}
 
 	err = reflist.ForEach(func(key []byte) error {
-		p, err2 := context.CollectionFactory().PackageCollection().ByKey(key)
+		p, err2 := collectionFactory.PackageCollection().ByKey(key)
 		if err2 != nil {
 			return err2
 		}

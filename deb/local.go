@@ -7,7 +7,6 @@ import (
 	"github.com/smira/go-uuid/uuid"
 	"github.com/ugorji/go/codec"
 	"log"
-	"sync"
 )
 
 // LocalRepo is a collection of packages created locally
@@ -91,7 +90,6 @@ func (repo *LocalRepo) RefKey() []byte {
 
 // LocalRepoCollection does listing, updating/adding/deleting of LocalRepos
 type LocalRepoCollection struct {
-	*sync.RWMutex
 	db   database.Storage
 	list []*LocalRepo
 }
@@ -99,7 +97,6 @@ type LocalRepoCollection struct {
 // NewLocalRepoCollection loads LocalRepos from DB and makes up collection
 func NewLocalRepoCollection(db database.Storage) *LocalRepoCollection {
 	result := &LocalRepoCollection{
-		RWMutex: &sync.RWMutex{},
 		db:      db,
 	}
 
@@ -137,17 +134,14 @@ func (collection *LocalRepoCollection) Add(repo *LocalRepo) error {
 
 // Update stores updated information about repo in DB
 func (collection *LocalRepoCollection) Update(repo *LocalRepo) error {
-	err := collection.db.Put(repo.Key(), repo.Encode())
-	if err != nil {
-		return err
-	}
+	batch := collection.db.StartBatch()
+	batch.Put(repo.Key(), repo.Encode())
+
 	if repo.packageRefs != nil {
-		err = collection.db.Put(repo.RefKey(), repo.packageRefs.Encode())
-		if err != nil {
-			return err
-		}
+		batch.Put(repo.RefKey(), repo.packageRefs.Encode())
 	}
-	return nil
+
+	return collection.db.FinishBatch(batch)
 }
 
 // LoadComplete loads additional information for local repo
@@ -219,10 +213,8 @@ func (collection *LocalRepoCollection) Drop(repo *LocalRepo) error {
 	collection.list[len(collection.list)-1], collection.list[repoPosition], collection.list =
 		nil, collection.list[len(collection.list)-1], collection.list[:len(collection.list)-1]
 
-	err := collection.db.Delete(repo.Key())
-	if err != nil {
-		return err
-	}
-
-	return collection.db.Delete(repo.RefKey())
+	batch := collection.db.StartBatch()
+	batch.Delete(repo.Key())
+	batch.Delete(repo.RefKey())
+	return collection.db.FinishBatch(batch)
 }

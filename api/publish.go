@@ -49,22 +49,13 @@ func parseEscapedPath(path string) string {
 
 // GET /publish
 func apiPublishList(c *gin.Context) {
-	localCollection := context.CollectionFactory().LocalRepoCollection()
-	localCollection.RLock()
-	defer localCollection.RUnlock()
-
-	snapshotCollection := context.CollectionFactory().SnapshotCollection()
-	snapshotCollection.RLock()
-	defer snapshotCollection.RUnlock()
-
-	collection := context.CollectionFactory().PublishedRepoCollection()
-	collection.RLock()
-	defer collection.RUnlock()
+	collectionFactory := context.NewCollectionFactory()
+	collection := collectionFactory.PublishedRepoCollection()
 
 	result := make([]*deb.PublishedRepo, 0, collection.Len())
 
 	err := collection.ForEach(func(repo *deb.PublishedRepo) error {
-		err := collection.LoadComplete(repo, context.CollectionFactory())
+		err := collection.LoadComplete(repo, collectionFactory)
 		if err != nil {
 			return err
 		}
@@ -119,13 +110,12 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 
 	var components []string
 	var sources []interface{}
+	collectionFactory := context.NewCollectionFactory()
 
 	if b.SourceKind == "snapshot" {
 		var snapshot *deb.Snapshot
 
-		snapshotCollection := context.CollectionFactory().SnapshotCollection()
-		snapshotCollection.RLock()
-		defer snapshotCollection.RUnlock()
+		snapshotCollection := collectionFactory.SnapshotCollection()
 
 		for _, source := range b.Sources {
 			components = append(components, source.Component)
@@ -147,9 +137,7 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 	} else if b.SourceKind == "local" {
 		var localRepo *deb.LocalRepo
 
-		localCollection := context.CollectionFactory().LocalRepoCollection()
-		localCollection.RLock()
-		defer localCollection.RUnlock()
+		localCollection := collectionFactory.LocalRepoCollection()
 
 		for _, source := range b.Sources {
 			components = append(components, source.Component)
@@ -172,11 +160,9 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 		return
 	}
 
-	collection := context.CollectionFactory().PublishedRepoCollection()
-	collection.Lock()
-	defer collection.Unlock()
+	collection := collectionFactory.PublishedRepoCollection()
 
-	published, err := deb.NewPublishedRepo(storage, prefix, b.Distribution, b.Architectures, components, sources, context.CollectionFactory())
+	published, err := deb.NewPublishedRepo(storage, prefix, b.Distribution, b.Architectures, components, sources, collectionFactory)
 	if err != nil {
 		c.Fail(500, fmt.Errorf("unable to publish: %s", err))
 		return
@@ -191,12 +177,12 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 
 	duplicate := collection.CheckDuplicate(published)
 	if duplicate != nil {
-		context.CollectionFactory().PublishedRepoCollection().LoadComplete(duplicate, context.CollectionFactory())
+		collectionFactory.PublishedRepoCollection().LoadComplete(duplicate, collectionFactory)
 		c.Fail(400, fmt.Errorf("prefix/distribution already used by another published repo: %s", duplicate))
 		return
 	}
 
-	err = published.Publish(context.PackagePool(), context, context.CollectionFactory(), signer, nil, b.ForceOverwrite)
+	err = published.Publish(context.PackagePool(), context, collectionFactory, signer, nil, b.ForceOverwrite)
 	if err != nil {
 		c.Fail(500, fmt.Errorf("unable to publish: %s", err))
 		return
@@ -237,25 +223,15 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 		return
 	}
 
-	// published.LoadComplete would touch local repo collection
-	localRepoCollection := context.CollectionFactory().LocalRepoCollection()
-	localRepoCollection.RLock()
-	defer localRepoCollection.RUnlock()
-
-	snapshotCollection := context.CollectionFactory().SnapshotCollection()
-	snapshotCollection.RLock()
-	defer snapshotCollection.RUnlock()
-
-	collection := context.CollectionFactory().PublishedRepoCollection()
-	collection.Lock()
-	defer collection.Unlock()
+	collectionFactory := context.NewCollectionFactory()
+	collection := collectionFactory.PublishedRepoCollection()
 
 	published, err := collection.ByStoragePrefixDistribution(storage, prefix, distribution)
 	if err != nil {
 		c.Fail(404, fmt.Errorf("unable to update: %s", err))
 		return
 	}
-	err = collection.LoadComplete(published, context.CollectionFactory())
+	err = collection.LoadComplete(published, collectionFactory)
 	if err != nil {
 		c.Fail(500, fmt.Errorf("unable to update: %s", err))
 		return
@@ -280,6 +256,7 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 				return
 			}
 
+			snapshotCollection := collectionFactory.SnapshotCollection()
 			snapshot, err := snapshotCollection.ByName(snapshotInfo.Name)
 			if err != nil {
 				c.Fail(404, err)
@@ -304,7 +281,7 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 		published.SkipContents = *b.SkipContents
 	}
 
-	err = published.Publish(context.PackagePool(), context, context.CollectionFactory(), signer, nil, b.ForceOverwrite)
+	err = published.Publish(context.PackagePool(), context, collectionFactory, signer, nil, b.ForceOverwrite)
 	if err != nil {
 		c.Fail(500, fmt.Errorf("unable to update: %s", err))
 		return
@@ -317,7 +294,7 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 	}
 
 	err = collection.CleanupPrefixComponentFiles(published.Prefix, updatedComponents,
-		context.GetPublishedStorage(storage), context.CollectionFactory(), nil)
+		context.GetPublishedStorage(storage), collectionFactory, nil)
 	if err != nil {
 		c.Fail(500, fmt.Errorf("unable to update: %s", err))
 		return
@@ -334,17 +311,11 @@ func apiPublishDrop(c *gin.Context) {
 	storage, prefix := deb.ParsePrefix(param)
 	distribution := c.Params.ByName("distribution")
 
-	// published.LoadComplete would touch local repo collection
-	localRepoCollection := context.CollectionFactory().LocalRepoCollection()
-	localRepoCollection.RLock()
-	defer localRepoCollection.RUnlock()
-
-	collection := context.CollectionFactory().PublishedRepoCollection()
-	collection.Lock()
-	defer collection.Unlock()
+	collectionFactory := context.NewCollectionFactory()
+	collection := collectionFactory.PublishedRepoCollection()
 
 	err := collection.Remove(context, storage, prefix, distribution,
-		context.CollectionFactory(), context.Progress(), force)
+		collectionFactory, context.Progress(), force)
 	if err != nil {
 		c.Fail(500, fmt.Errorf("unable to drop: %s", err))
 		return

@@ -11,7 +11,6 @@ import (
 	"log"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -162,7 +161,6 @@ func (s *Snapshot) Decode(input []byte) error {
 
 // SnapshotCollection does listing, updating/adding/deleting of Snapshots
 type SnapshotCollection struct {
-	*sync.RWMutex
 	db   database.Storage
 	list []*Snapshot
 }
@@ -170,7 +168,6 @@ type SnapshotCollection struct {
 // NewSnapshotCollection loads Snapshots from DB and makes up collection
 func NewSnapshotCollection(db database.Storage) *SnapshotCollection {
 	result := &SnapshotCollection{
-		RWMutex: &sync.RWMutex{},
 		db:      db,
 	}
 
@@ -208,14 +205,14 @@ func (collection *SnapshotCollection) Add(snapshot *Snapshot) error {
 
 // Update stores updated information about repo in DB
 func (collection *SnapshotCollection) Update(snapshot *Snapshot) error {
-	err := collection.db.Put(snapshot.Key(), snapshot.Encode())
-	if err != nil {
-		return err
-	}
+	batch := collection.db.StartBatch()
+
+	batch.Put(snapshot.Key(), snapshot.Encode())
 	if snapshot.packageRefs != nil {
-		return collection.db.Put(snapshot.RefKey(), snapshot.packageRefs.Encode())
+		batch.Put(snapshot.RefKey(), snapshot.packageRefs.Encode())
 	}
-	return nil
+
+	return collection.db.FinishBatch(batch)
 }
 
 // LoadComplete loads additional information about snapshot
@@ -338,12 +335,10 @@ func (collection *SnapshotCollection) Drop(snapshot *Snapshot) error {
 	collection.list[len(collection.list)-1], collection.list[snapshotPosition], collection.list =
 		nil, collection.list[len(collection.list)-1], collection.list[:len(collection.list)-1]
 
-	err := collection.db.Delete(snapshot.Key())
-	if err != nil {
-		return err
-	}
-
-	return collection.db.Delete(snapshot.RefKey())
+	batch := collection.db.StartBatch()
+	batch.Delete(snapshot.Key())
+	batch.Delete(snapshot.RefKey())
+	return collection.db.FinishBatch(batch)
 }
 
 // Snapshot sorting methods

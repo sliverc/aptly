@@ -21,12 +21,13 @@ func aptlyMirrorUpdate(cmd *commander.Command, args []string) error {
 
 	name := args[0]
 
-	repo, err := context.CollectionFactory().RemoteRepoCollection().ByName(name)
+	collectionFactory := context.NewCollectionFactory()
+	repo, err := collectionFactory.RemoteRepoCollection().ByName(name)
 	if err != nil {
 		return fmt.Errorf("unable to update: %s", err)
 	}
 
-	err = context.CollectionFactory().RemoteRepoCollection().LoadComplete(repo)
+	err = collectionFactory.RemoteRepoCollection().LoadComplete(repo)
 	if err != nil {
 		return fmt.Errorf("unable to update: %s", err)
 	}
@@ -52,7 +53,7 @@ func aptlyMirrorUpdate(cmd *commander.Command, args []string) error {
 	}
 
 	context.Progress().Printf("Downloading & parsing package files...\n")
-	err = repo.DownloadPackageIndexes(context.Progress(), context.Downloader(), context.CollectionFactory(), ignoreMismatch)
+	err = repo.DownloadPackageIndexes(context.Progress(), context.Downloader(), collectionFactory, ignoreMismatch)
 	if err != nil {
 		return fmt.Errorf("unable to update: %s", err)
 	}
@@ -90,12 +91,12 @@ func aptlyMirrorUpdate(cmd *commander.Command, args []string) error {
 		err := context.ReOpenDatabase()
 		if err == nil {
 			repo.MarkAsIdle()
-			context.CollectionFactory().RemoteRepoCollection().Update(repo)
+			collectionFactory.RemoteRepoCollection().Update(repo)
 		}
 	}()
 
 	repo.MarkAsUpdating()
-	err = context.CollectionFactory().RemoteRepoCollection().Update(repo)
+	err = collectionFactory.RemoteRepoCollection().Update(repo)
 	if err != nil {
 		return fmt.Errorf("unable to update: %s", err)
 	}
@@ -157,7 +158,7 @@ func aptlyMirrorUpdate(cmd *commander.Command, args []string) error {
 	}
 
 	repo.FinalizeDownload()
-	err = context.CollectionFactory().RemoteRepoCollection().Update(repo)
+	err = collectionFactory.RemoteRepoCollection().Update(repo)
 	if err != nil {
 		return fmt.Errorf("unable to update: %s", err)
 	}

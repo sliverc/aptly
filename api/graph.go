@@ -19,17 +19,7 @@ func apiGraph(c *gin.Context) {
 	)
 
 	ext := c.Params.ByName("ext")
-
-	factory := context.CollectionFactory()
-
-	factory.RemoteRepoCollection().RLock()
-	defer factory.RemoteRepoCollection().RUnlock()
-	factory.LocalRepoCollection().RLock()
-	defer factory.LocalRepoCollection().RUnlock()
-	factory.SnapshotCollection().RLock()
-	defer factory.SnapshotCollection().RUnlock()
-	factory.PublishedRepoCollection().RLock()
-	defer factory.PublishedRepoCollection().RUnlock()
+	factory := context.NewCollectionFactory()
 
 	graph, err := deb.BuildGraph(factory)
 	if err != nil {

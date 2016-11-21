@@ -20,6 +20,7 @@ func aptlyDbCleanup(cmd *commander.Command, args []string) error {
 
 	verbose := context.Flags().Lookup("verbose").Value.Get().(bool)
 	dryRun := context.Flags().Lookup("dry-run").Value.Get().(bool)
+	collectionFactory := context.NewCollectionFactory()
 
 	// collect information about references packages...
 	existingPackageRefs := deb.NewPackageRefList()
@@ -31,12 +32,12 @@ func aptlyDbCleanup(cmd *commander.Command, args []string) error {
 	if verbose {
 		context.Progress().ColoredPrintf("@{y}Loading mirrors:@|")
 	}
-	err = context.CollectionFactory().RemoteRepoCollection().ForEach(func(repo *deb.RemoteRepo) error {
+	err = collectionFactory.RemoteRepoCollection().ForEach(func(repo *deb.RemoteRepo) error {
 		if verbose {
 			context.Progress().ColoredPrintf("- @{g}%s@|", repo.Name)
 		}
 
-		err := context.CollectionFactory().RemoteRepoCollection().LoadComplete(repo)
+		err := collectionFactory.RemoteRepoCollection().LoadComplete(repo)
 		if err != nil {
 			return err
 		}
@@ -61,12 +62,12 @@ func aptlyDbCleanup(cmd *commander.Command, args []string) error {
 	if verbose {
 		context.Progress().ColoredPrintf("@{y}Loading local repos:@|")
 	}
-	err = context.CollectionFactory().LocalRepoCollection().ForEach(func(repo *deb.LocalRepo) error {
+	err = collectionFactory.LocalRepoCollection().ForEach(func(repo *deb.LocalRepo) error {
 		if verbose {
 			context.Progress().ColoredPrintf("- @{g}%s@|", repo.Name)
 		}
 
-		err := context.CollectionFactory().LocalRepoCollection().LoadComplete(repo)
+		err := collectionFactory.LocalRepoCollection().LoadComplete(repo)
 		if err != nil {
 			return err
 		}
@@ -92,12 +93,12 @@ func aptlyDbCleanup(cmd *commander.Command, args []string) error {
 	if verbose {
 		context.Progress().ColoredPrintf("@{y}Loading snapshots:@|")
 	}
-	err = context.CollectionFactory().SnapshotCollection().ForEach(func(snapshot *deb.Snapshot) error {
+	err = collectionFactory.SnapshotCollection().ForEach(func(snapshot *deb.Snapshot) error {
 		if verbose {
 			context.Progress().ColoredPrintf("- @{g}%s@|", snapshot.Name)
 		}
 
-		err := context.CollectionFactory().SnapshotCollection().LoadComplete(snapshot)
+		err := collectionFactory.SnapshotCollection().LoadComplete(snapshot)
 		if err != nil {
 			return err
 		}
@@ -120,14 +121,14 @@ func aptlyDbCleanup(cmd *commander.Command, args []string) error {
 	if verbose {
 		context.Progress().ColoredPrintf("@{y}Loading published repositories:@|")
 	}
-	err = context.CollectionFactory().PublishedRepoCollection().ForEach(func(published *deb.PublishedRepo) error {
+	err = collectionFactory.PublishedRepoCollection().ForEach(func(published *deb.PublishedRepo) error {
 		if verbose {
 			context.Progress().ColoredPrintf("- @{g}%s:%s/%s{|}", published.Storage, published.Prefix, published.Distribution)
 		}
 		if published.SourceKind != "local" {
 			return nil
 		}
-		err := context.CollectionFactory().PublishedRepoCollection().LoadComplete(published, context.CollectionFactory())
+		err := collectionFactory.PublishedRepoCollection().LoadComplete(published, collectionFactory)
 		if err != nil {
 			return err
 		}
@@ -151,7 +152,7 @@ func aptlyDbCleanup(cmd *commander.Command, args []string) error {
 
 	// ... and compare it to the list of all packages
 	context.Progress().ColoredPrintf("@{w!}Loading list of all packages...@|")
-	allPackageRefs := context.CollectionFactory().PackageCollection().AllPackageRefs()
+	allPackageRefs := collectionFactory.PackageCollection().AllPackageRefs()
 
 	toDelete := allPackageRefs.Substract(existingPackageRefs)
 
@@ -174,15 +175,13 @@ func aptlyDbCleanup(cmd *commander.Command, args []string) error {
 		}
 
 		if !dryRun {
-			db.StartBatch()
-			err = toDelete.ForEach(func(ref []byte) error {
-				return context.CollectionFactory().PackageCollection().DeleteByKey(ref)
+			batch := db.StartBatch()
+			toDelete.ForEach(func(ref []byte) error {
+				collectionFactory.PackageCollection().DeleteByKey(ref, batch)
+				return nil
 			})
-			if err != nil {
-				return err
-			}
 
-			err = db.FinishBatch()
+			err = db.FinishBatch(batch)
 			if err != nil {
 				return fmt.Errorf("unable to write to DB: %s", err)
 			}
@@ -197,7 +196,7 @@ func aptlyDbCleanup(cmd *commander.Command, args []string) error {
 	context.Progress().InitBar(int64(existingPackageRefs.Len()), false)
 
 	err = existingPackageRefs.ForEach(func(key []byte) error {
-		pkg, err2 := context.CollectionFactory().PackageCollection().ByKey(key)
+		pkg, err2 := collectionFactory.PackageCollection().ByKey(key)
 		if err2 != nil {
 			tail := ""
 			if verbose {

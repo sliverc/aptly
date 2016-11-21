@@ -14,6 +14,7 @@ func aptlyPublishSnapshotOrRepo(cmd *commander.Command, args []string) error {
 	var err error
 
 	components := strings.Split(context.Flags().Lookup("component").Value.String(), ",")
+	collectionFactory := context.NewCollectionFactory()
 
 	if len(args) < len(components) || len(args) > len(components)+1 {
 		cmd.Usage()
@@ -42,12 +43,12 @@ func aptlyPublishSnapshotOrRepo(cmd *commander.Command, args []string) error {
 		)
 
 		for _, name := range args {
-			snapshot, err = context.CollectionFactory().SnapshotCollection().ByName(name)
+			snapshot, err = collectionFactory.SnapshotCollection().ByName(name)
 			if err != nil {
 				return fmt.Errorf("unable to publish: %s", err)
 			}
 
-			err = context.CollectionFactory().SnapshotCollection().LoadComplete(snapshot)
+			err = collectionFactory.SnapshotCollection().LoadComplete(snapshot)
 			if err != nil {
 				return fmt.Errorf("unable to publish: %s", err)
 			}
@@ -78,12 +79,12 @@ func aptlyPublishSnapshotOrRepo(cmd *commander.Command, args []string) error {
 		)
 
 		for _, name := range args {
-			localRepo, err = context.CollectionFactory().LocalRepoCollection().ByName(name)
+			localRepo, err = collectionFactory.LocalRepoCollection().ByName(name)
 			if err != nil {
 				return fmt.Errorf("unable to publish: %s", err)
 			}
 
-			err = context.CollectionFactory().LocalRepoCollection().LoadComplete(localRepo)
+			err = collectionFactory.LocalRepoCollection().LoadComplete(localRepo)
 			if err != nil {
 				return fmt.Errorf("unable to publish: %s", err)
 			}
@@ -112,7 +113,7 @@ func aptlyPublishSnapshotOrRepo(cmd *commander.Command, args []string) error {
 
 	distribution := context.Flags().Lookup("distribution").Value.String()
 
-	published, err := deb.NewPublishedRepo(storage, prefix, distribution, context.ArchitecturesList(), components, sources, context.CollectionFactory())
+	published, err := deb.NewPublishedRepo(storage, prefix, distribution, context.ArchitecturesList(), components, sources, collectionFactory)
 	if err != nil {
 		return fmt.Errorf("unable to publish: %s", err)
 	}
@@ -125,9 +126,9 @@ func aptlyPublishSnapshotOrRepo(cmd *commander.Command, args []string) error {
 		published.SkipContents = context.Flags().Lookup("skip-contents").Value.Get().(bool)
 	}
 
-	duplicate := context.CollectionFactory().PublishedRepoCollection().CheckDuplicate(published)
+	duplicate := collectionFactory.PublishedRepoCollection().CheckDuplicate(published)
 	if duplicate != nil {
-		context.CollectionFactory().PublishedRepoCollection().LoadComplete(duplicate, context.CollectionFactory())
+		collectionFactory.PublishedRepoCollection().LoadComplete(duplicate, collectionFactory)
 		return fmt.Errorf("prefix/distribution already used by another published repo: %s", duplicate)
 	}
 
@@ -142,12 +143,12 @@ func aptlyPublishSnapshotOrRepo(cmd *commander.Command, args []string) error {
 			"the same package pool.\n")
 	}
 
-	err = published.Publish(context.PackagePool(), context, context.CollectionFactory(), signer, context.Progress(), forceOverwrite)
+	err = published.Publish(context.PackagePool(), context, collectionFactory, signer, context.Progress(), forceOverwrite)
 	if err != nil {
 		return fmt.Errorf("unable to publish: %s", err)
 	}
 
-	err = context.CollectionFactory().PublishedRepoCollection().Add(published)
+	err = collectionFactory.PublishedRepoCollection().Add(published)
 	if err != nil {
 		return fmt.Errorf("unable to save to DB: %s", err)
 	}

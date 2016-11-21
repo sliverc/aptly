@@ -16,10 +16,11 @@ func aptlyPublishList(cmd *commander.Command, args []string) error {
 
 	raw := cmd.Flag.Lookup("raw").Value.Get().(bool)
 
-	published := make([]string, 0, context.CollectionFactory().PublishedRepoCollection().Len())
+	collectionFactory := context.NewCollectionFactory()
+	published := make([]string, 0, collectionFactory.PublishedRepoCollection().Len())
 
-	err = context.CollectionFactory().PublishedRepoCollection().ForEach(func(repo *deb.PublishedRepo) error {
-		err := context.CollectionFactory().PublishedRepoCollection().LoadComplete(repo, context.CollectionFactory())
+	err = collectionFactory.PublishedRepoCollection().ForEach(func(repo *deb.PublishedRepo) error {
+		err := collectionFactory.PublishedRepoCollection().LoadComplete(repo, collectionFactory)
 		if err != nil {
 			return err
 		}
