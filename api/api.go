@@ -10,6 +10,9 @@ import (
 	"sort"
 )
 
+var dbRequests chan int
+var dbAcks chan error
+
 // Lock order acquisition (canonical):
 //  1. RemoteRepoCollection
 //  2. LocalRepoCollection
@@ -31,27 +34,57 @@ const (
 // acquire/release the database and the second one is to send acks.
 //
 // Should be run in a goroutine!
-func acquireDatabase(requests chan int, acks chan error) {
+func acquireDatabase() {
 	clients := 0
 	for {
-		request := <-requests
+		request := <-dbRequests
 		switch request {
 		case ACQUIREDB:
 			if clients == 0 {
-				acks <- context.ReOpenDatabase()
+				dbAcks <- context.ReOpenDatabase()
 			} else {
-				acks <- nil
+				dbAcks <- nil
 			}
 			clients++
 		case RELEASEDB:
 			clients--
 			if clients == 0 {
-				acks <- context.CloseDatabase()
+				dbAcks <- context.CloseDatabase()
 			} else {
-				acks <- nil
+				dbAcks <- nil
 			}
 		}
 	}
+}
+
+// Should be called before database access is needed in any api call.
+// Happens per default for each api call but important for queuing
+// of tasks you need to use pushToQueue or accuire manually.
+// Important do not forget to defer to releaseDatabaseConnection
+func acquireDatabaseConnection() error {
+	if dbRequests == nil {
+		return nil
+	}
+
+	dbRequests <- ACQUIREDB
+	return <-dbAcks
+}
+
+// Release database connection when not needed anymore
+func releaseDatabaseConnection() error {
+	if dbRequests == nil {
+		return nil
+	}
+	dbRequests <- RELEASEDB
+	return <-dbAcks
+}
+
+// push proc func to queue. Acquires database connection first.
+func pushToQueue(name string, proc func() error) {
+	acquireDatabaseConnection()
+	defer releaseDatabaseConnection()
+
+	context.Queue().Push(name, proc)
 }
 
 // Common piece of code to show list of packages,
