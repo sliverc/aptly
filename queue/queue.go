@@ -44,6 +44,7 @@ type Queue struct {
 // New creates empty queue ready to be tasked
 func New() *Queue {
 	q := &Queue{
+		Mutex: &sync.Mutex{},
 		work:  make(chan *Task),
 		tasks: make([]*Task, 0),
 	}
