@@ -21,18 +21,24 @@ func (s *QueueSuite) TestQueue(c *C) {
 	queue := New()
 	c.Assert(len(queue.GetTasks()), Equals, 0)
 
-	queue.Push("Successful task", func() error { return nil })
+	queue.Push("Successful task", func(out *TaskOutput) error {
+		return nil
+	})
 	queue.Wait()
 
 	tasks := queue.GetTasks()
 	c.Assert(len(tasks), Equals, 1)
 	c.Check(tasks[0].State, Equals, FINISHED)
 
-	queue.Push("Faulty task", func() error { return err })
+	queue.Push("Faulty task", func(out *TaskOutput) error {
+		out.WriteString("Test Progress")
+		return err
+	})
 	queue.Wait()
 
 	tasks = queue.GetTasks()
 	c.Assert(len(tasks), Equals, 2)
 	c.Check(tasks[1].State, Equals, FINISHED)
 	c.Check(tasks[1].Err, Equals, err)
+	c.Check(tasks[1].output.String(), Equals, "Test Progress")
 }

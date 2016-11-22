@@ -1,41 +1,18 @@
 package queue
 
 import (
+	"bytes"
 	"sync"
 )
-
-// TODO add unit test
-// TODO rewrite api that writable calls are done through queue
-
-// State task is in
-type State int
-
-const (
-	// IDLE when task is waiting
-	IDLE State = iota
-	// RUNNING when task is running
-	RUNNING
-	// FINISHED when task is finished
-	FINISHED
-)
-
-// Task represents as task in a queue encapsulates process code
-type Task struct {
-	process func() error
-	Name    string
-	ID      int
-	Err     error `json:",omitempty"`
-	State   State
-}
 
 // Queue is handling list of processes and makes sure
 // only one process is executed at the time
 type Queue struct {
 	*sync.Mutex
-	work      chan *Task
-	tasks     []*Task
+	work  chan *Task
+	tasks []*Task
 	// wait group to be able to close queue
-	wgQueue   sync.WaitGroup
+	wgQueue sync.WaitGroup
 	// wait group for tasks to finish
 	wgtasks   sync.WaitGroup
 	idCounter int
@@ -63,7 +40,7 @@ func New() *Queue {
 			task.State = RUNNING
 			q.Unlock()
 
-			err := task.process()
+			err := task.process(task.output)
 
 			q.Lock()
 			task.Err = err
@@ -86,12 +63,17 @@ func (q *Queue) GetTasks() []*Task {
 }
 
 // Push pushes a new task with given name and processor logic to queue
-func (q *Queue) Push(name string, process func() error) *Task {
+func (q *Queue) Push(name string, process func(out *TaskOutput) error) {
 
 	q.Lock()
 	q.idCounter++
 	task := &Task{
-		process: process, Name: name, ID: q.idCounter, State: IDLE, Err: nil,
+		output:  &TaskOutput{mu: &sync.Mutex{}, output: &bytes.Buffer{}},
+		process: process,
+		Name:    name,
+		ID:      q.idCounter,
+		State:   IDLE,
+		Err:     nil,
 	}
 	q.tasks = append(q.tasks, task)
 	q.Unlock()
@@ -100,8 +82,6 @@ func (q *Queue) Push(name string, process func() error) *Task {
 	go func() {
 		q.work <- task
 	}()
-
-	return task
 }
 
 // Wait waits till all tasks are done on queue
