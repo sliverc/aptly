@@ -71,6 +71,22 @@ func (q *Queue) GetTasks() []*Task {
 	return tasks
 }
 
+// GetTaskByID returns task with given id
+func (q *Queue) GetTaskByID(ID int) (Task, error) {
+	q.Lock()
+	tasks := q.tasks
+	q.Unlock()
+
+	for _, task := range tasks {
+		if task.ID == ID {
+			return *task, nil
+		}
+	}
+
+	return Task{}, fmt.Errorf("Could not find task with id %v", ID)
+}
+
+
 // Push pushes a new task with given name and processor logic to queue
 func (q *Queue) Push(name string, process func(out *TaskOutput) error) Task {
 

@@ -114,6 +114,7 @@ func Router(c *ctx.AptlyContext) http.Handler {
 		root.GET("/queue", apiQueueList)
 		root.POST("/queue/clear", apiQueueClear)
 		root.GET("/queue/wait", apiQueueWait)
+		root.GET("/queue/:id", apiQueueTaskByID)
 	}
 
 	return router
