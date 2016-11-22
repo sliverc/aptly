@@ -13,8 +13,10 @@ const (
 	IDLE State = iota
 	// RUNNING when task is running
 	RUNNING
-	// FINISHED when task is finished
-	FINISHED
+	// SUCCEEDED when task is successfully finished
+	SUCCEEDED
+	// FAILED when task failed
+	FAILED
 )
 
 // Task represents as task in a queue encapsulates process code
@@ -23,7 +25,6 @@ type Task struct {
 	process func(out *TaskOutput) error
 	Name    string
 	ID      int
-	Err     error `json:",omitempty"`
 	State   State
 }
 

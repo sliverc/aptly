@@ -2,6 +2,7 @@ package queue
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 )
 
@@ -43,18 +44,26 @@ func New() *Queue {
 			err := task.process(task.output)
 
 			q.Lock()
-			task.Err = err
-			task.State = FINISHED
-			q.Unlock()
 
+			if err != nil {
+				fmt.Fprintf(task.output, "Task failed with error: %v", err)
+				task.State = FAILED
+			} else {
+				fmt.Fprintln(task.output, "Task succeeded")
+				task.State = SUCCEEDED
+			}
+
+			q.Unlock()
 			q.wgtasks.Done()
 		}
+
 	}()
 
 	return q
 }
 
 // GetTasks gets complete list of tasks
+// TODO should be a slice of task values
 func (q *Queue) GetTasks() []*Task {
 	q.Lock()
 	tasks := q.tasks
@@ -63,7 +72,7 @@ func (q *Queue) GetTasks() []*Task {
 }
 
 // Push pushes a new task with given name and processor logic to queue
-func (q *Queue) Push(name string, process func(out *TaskOutput) error) {
+func (q *Queue) Push(name string, process func(out *TaskOutput) error) Task {
 
 	q.Lock()
 	q.idCounter++
@@ -73,7 +82,6 @@ func (q *Queue) Push(name string, process func(out *TaskOutput) error) {
 		Name:    name,
 		ID:      q.idCounter,
 		State:   IDLE,
-		Err:     nil,
 	}
 	q.tasks = append(q.tasks, task)
 	q.Unlock()
@@ -82,6 +90,8 @@ func (q *Queue) Push(name string, process func(out *TaskOutput) error) {
 	go func() {
 		q.work <- task
 	}()
+
+	return *task
 }
 
 // Wait waits till all tasks are done on queue
@@ -95,7 +105,7 @@ func (q *Queue) Clear() {
 
 	var tasks []*Task
 	for _, task := range q.tasks {
-		if task.State != FINISHED {
+		if task.State == IDLE || task.State == RUNNING {
 			tasks = append(tasks, task)
 		}
 	}
