@@ -1,4 +1,4 @@
-package queue
+package task
 
 import (
 	"errors"
@@ -18,10 +18,10 @@ var _ = Suite(&QueueSuite{})
 
 func (s *QueueSuite) TestQueue(c *C) {
 	err := errors.New("Task failed")
-	queue := New()
+	queue := NewQueue()
 	c.Assert(len(queue.GetTasks()), Equals, 0)
 
-	task := queue.Push("Successful task", func(out *TaskOutput) error {
+	task := queue.Push("Successful task", func(out *Output) error {
 		return nil
 	})
 	queue.Wait()
@@ -32,7 +32,7 @@ func (s *QueueSuite) TestQueue(c *C) {
 	c.Check(task.State, Equals, SUCCEEDED)
 	c.Check(task.output.String(), Equals, "Task succeeded\n")
 
-	task = queue.Push("Faulty task", func(out *TaskOutput) error {
+	task = queue.Push("Faulty task", func(out *Output) error {
 		out.WriteString("Test Progress\n")
 		return err
 	})

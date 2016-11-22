@@ -9,7 +9,7 @@ import (
 	"github.com/smira/aptly/deb"
 	"github.com/smira/aptly/files"
 	"github.com/smira/aptly/http"
-	"github.com/smira/aptly/queue"
+	"github.com/smira/aptly/task"
 	"github.com/smira/aptly/s3"
 	"github.com/smira/aptly/swift"
 	"github.com/smira/aptly/utils"
@@ -33,7 +33,7 @@ type AptlyContext struct {
 
 	progress          aptly.Progress
 	downloader        aptly.Downloader
-	queue             *queue.Queue
+	queue             *task.Queue
 	database          database.Storage
 	packagePool       aptly.PackagePool
 	publishedStorages map[string]aptly.PublishedStorage
@@ -208,13 +208,13 @@ func (context *AptlyContext) Downloader() aptly.Downloader {
 	return context.downloader
 }
 
-// Queue returns instance of current queue
-func (context *AptlyContext) Queue() *queue.Queue {
+// Queue returns instance of current task queue
+func (context *AptlyContext) Queue() *task.Queue {
 	context.Lock()
 	defer context.Unlock()
 
 	if context.queue == nil {
-		context.queue = queue.New()
+		context.queue = task.NewQueue()
 	}
 	return context.queue
 }

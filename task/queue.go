@@ -1,4 +1,4 @@
-package queue
+package task
 
 import (
 	"bytes"
@@ -19,8 +19,8 @@ type Queue struct {
 	idCounter int
 }
 
-// New creates empty queue ready to be tasked
-func New() *Queue {
+// NewQueue creates empty queue ready to be tasked
+func NewQueue() *Queue {
 	q := &Queue{
 		Mutex: &sync.Mutex{},
 		work:  make(chan *Task),
@@ -88,12 +88,12 @@ func (q *Queue) GetTaskByID(ID int) (Task, error) {
 
 
 // Push pushes a new task with given name and processor logic to queue
-func (q *Queue) Push(name string, process func(out *TaskOutput) error) Task {
+func (q *Queue) Push(name string, process func(out *Output) error) Task {
 
 	q.Lock()
 	q.idCounter++
 	task := &Task{
-		output:  &TaskOutput{mu: &sync.Mutex{}, output: &bytes.Buffer{}},
+		output:  &Output{mu: &sync.Mutex{}, output: &bytes.Buffer{}},
 		process: process,
 		Name:    name,
 		ID:      q.idCounter,

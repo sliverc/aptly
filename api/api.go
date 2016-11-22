@@ -7,7 +7,7 @@ import (
 	"github.com/smira/aptly/aptly"
 	"github.com/smira/aptly/deb"
 	"github.com/smira/aptly/query"
-	"github.com/smira/aptly/queue"
+	"github.com/smira/aptly/task"
 	"sort"
 )
 
@@ -81,7 +81,7 @@ func releaseDatabaseConnection() error {
 }
 
 // push proc func to queue. Acquires database connection first.
-func pushToQueue(name string, proc func(t *queue.Task) error) {
+func pushToQueue(name string, proc func(out *task.Output) error) {
 	acquireDatabaseConnection()
 	defer releaseDatabaseConnection()
 
