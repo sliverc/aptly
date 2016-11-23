@@ -30,7 +30,8 @@ func (s *QueueSuite) TestQueue(c *C) {
 	c.Assert(len(tasks), Equals, 1)
 	task, _ = queue.GetTaskByID(task.ID)
 	c.Check(task.State, Equals, SUCCEEDED)
-	c.Check(task.output.String(), Equals, "Task succeeded\n")
+	output, _ := queue.GetTaskOutputByID(task.ID)
+	c.Check(output, Equals, "Task succeeded\n")
 
 	task = queue.Push("Faulty task", func(out *Output) error {
 		out.WriteString("Test Progress\n")
@@ -42,5 +43,6 @@ func (s *QueueSuite) TestQueue(c *C) {
 	c.Assert(len(tasks), Equals, 2)
 	task, _ = queue.GetTaskByID(task.ID)
 	c.Check(task.State, Equals, FAILED)
-	c.Check(task.output.String(), Equals, "Test Progress\nTask failed with error: Task failed")
+	output, _ = queue.GetTaskOutputByID(task.ID)
+	c.Check(output, Equals, "Test Progress\nTask failed with error: Task failed")
 }

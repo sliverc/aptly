@@ -86,6 +86,17 @@ func (q *Queue) GetTaskByID(ID int) (Task, error) {
 	return Task{}, fmt.Errorf("Could not find task with id %v", ID)
 }
 
+// GetTaskOutputByID returns standard output of task with given id
+func (q *Queue) GetTaskOutputByID(ID int) (string, error) {
+	task, err := q.GetTaskByID(ID)
+
+	if err != nil {
+		return "", err
+	}
+
+	return task.output.String(), nil
+}
+
 
 // Push pushes a new task with given name and processor logic to queue
 func (q *Queue) Push(name string, process func(out *Output) error) Task {

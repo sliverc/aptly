@@ -45,3 +45,22 @@ func apiTasksShow(c *gin.Context) {
 
 	c.JSON(200, task)
 }
+
+// GET /tasks/:id/output
+func apiTasksOutputShow(c *gin.Context) {
+	q := context.Queue()
+	id, err := strconv.ParseInt(c.Params.ByName("id"), 10, 0)
+	if err != nil {
+		c.Fail(500, err)
+		return
+	}
+
+	var output string
+	output, err = q.GetTaskOutputByID(int(id))
+	if err != nil {
+		c.Fail(500, err)
+		return
+	}
+
+	c.JSON(200, output)
+}

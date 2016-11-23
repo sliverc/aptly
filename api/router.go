@@ -112,8 +112,8 @@ func Router(c *ctx.AptlyContext) http.Handler {
 	}
 	{
 		root.GET("/tasks", apiTasksList)
-		root.POST("/tasks/clear", apiTasksClear)
-		root.GET("/tasks/wait", apiTasksWait)
+		root.POST("/tasks-clear", apiTasksClear)
+		root.GET("/tasks-wait", apiTasksWait)
 		root.GET("/tasks/:id", apiTasksShow)
 	}
 
