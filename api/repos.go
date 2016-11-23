@@ -2,13 +2,15 @@ package api
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+
 	"github.com/gin-gonic/gin"
 	"github.com/smira/aptly/aptly"
 	"github.com/smira/aptly/database"
 	"github.com/smira/aptly/deb"
+	"github.com/smira/aptly/task"
 	"github.com/smira/aptly/utils"
-	"os"
-	"path/filepath"
 )
 
 // GET /api/repos
@@ -166,7 +168,7 @@ func apiReposPackagesShow(c *gin.Context) {
 }
 
 // Handler for both add and delete
-func apiReposPackagesAddDelete(c *gin.Context, cb func(list *deb.PackageList, p *deb.Package) error) {
+func apiReposPackagesAddDelete(c *gin.Context, taskNamePrefix string, cb func(list *deb.PackageList, p *deb.Package, out *task.Output) error) {
 	var b struct {
 		PackageRefs []string
 	}
@@ -190,54 +192,51 @@ func apiReposPackagesAddDelete(c *gin.Context, cb func(list *deb.PackageList, p 
 		return
 	}
 
-	list, err := deb.NewPackageListFromRefList(repo.RefList(), collectionFactory.PackageCollection(), nil)
-	if err != nil {
-		c.Fail(500, err)
-		return
-	}
-
-	// verify package refs and build package list
-	for _, ref := range b.PackageRefs {
-		var p *deb.Package
-
-		p, err = collectionFactory.PackageCollection().ByKey([]byte(ref))
+	task := pushToQueue(taskNamePrefix + repo.Name, func(out *task.Output) error {
+		fmt.Fprintln(out, "Loading packages...")
+		list, err := deb.NewPackageListFromRefList(repo.RefList(), collectionFactory.PackageCollection(), nil)
 		if err != nil {
-			if err == database.ErrNotFound {
-				c.Fail(404, fmt.Errorf("package %s: %s", ref, err))
-			} else {
-				c.Fail(500, err)
+			return err
+		}
+
+		// verify package refs and build package list
+		for _, ref := range b.PackageRefs {
+			var p *deb.Package
+
+			p, err = collectionFactory.PackageCollection().ByKey([]byte(ref))
+			if err != nil {
+				if err == database.ErrNotFound {
+					return fmt.Errorf("packages %s: %s", ref, err)
+				}
+
+				return err
 			}
-			return
+			err = cb(list, p, out)
+			if err != nil {
+				return err
+			}
 		}
-		err = cb(list, p)
-		if err != nil {
-			c.Fail(400, err)
-			return
-		}
-	}
 
-	repo.UpdateRefList(deb.NewPackageRefListFromPackageList(list))
+		repo.UpdateRefList(deb.NewPackageRefListFromPackageList(list))
 
-	err = collectionFactory.LocalRepoCollection().Update(repo)
-	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to save: %s", err))
-		return
-	}
+		return collectionFactory.LocalRepoCollection().Update(repo)
+	})
 
-	c.JSON(200, repo)
-
+	c.JSON(202, task)
 }
 
 // POST /repos/:name/packages
 func apiReposPackagesAdd(c *gin.Context) {
-	apiReposPackagesAddDelete(c, func(list *deb.PackageList, p *deb.Package) error {
+	apiReposPackagesAddDelete(c, "Add packages to repo ", func(list *deb.PackageList, p *deb.Package, out *task.Output) error {
+		fmt.Fprintf(out, "Adding package %s", p.Name)
 		return list.Add(p)
 	})
 }
 
 // DELETE /repos/:name/packages
 func apiReposPackagesDelete(c *gin.Context) {
-	apiReposPackagesAddDelete(c, func(list *deb.PackageList, p *deb.Package) error {
+	apiReposPackagesAddDelete(c, "Delete packages from repo ", func(list *deb.PackageList, p *deb.Package, out *task.Output) error {
+		fmt.Fprintf(out, "Removing package %s", p.Name)
 		list.Remove(p)
 		return nil
 	})

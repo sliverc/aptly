@@ -178,8 +178,8 @@ class PublishUpdateAPITestRepo(APITest):
                          "libboost-program-options-dev_1.49.0.1_i386.deb").status_code, 200)
         self.check_equal(self.post("/api/repos/" + repo_name + "/file/" + d).status_code, 200)
 
-        self.check_equal(self.delete("/api/repos/" + repo_name + "/packages/",
-                         json={"PackageRefs": ['Psource pyspi 0.6.1-1.4 f8f1daa806004e89']}).status_code, 200)
+        self.check_equal(self.delete_task("/api/repos/" + repo_name + "/packages/",
+                         json={"PackageRefs": ['Psource pyspi 0.6.1-1.4 f8f1daa806004e89']}).json()['State'], 2)
 
         resp = self.put("/api/publish/" + prefix + "/wheezy",
                         json={
@@ -256,8 +256,8 @@ class PublishSwitchAPITestRepo(APITest):
                          "libboost-program-options-dev_1.49.0.1_i386.deb").status_code, 200)
         self.check_equal(self.post("/api/repos/" + repo_name + "/file/" + d).status_code, 200)
 
-        self.check_equal(self.delete("/api/repos/" + repo_name + "/packages/",
-                         json={"PackageRefs": ['Psource pyspi 0.6.1-1.4 f8f1daa806004e89']}).status_code, 200)
+        self.check_equal(self.delete_task("/api/repos/" + repo_name + "/packages/",
+                         json={"PackageRefs": ['Psource pyspi 0.6.1-1.4 f8f1daa806004e89']}).json()['State'], 2)
 
         snapshot2_name = self.random_name()
         self.check_equal(self.post("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshot2_name}).status_code, 201)
