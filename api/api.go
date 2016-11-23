@@ -82,10 +82,17 @@ func releaseDatabaseConnection() error {
 
 // push proc func to queue. Acquires database connection first.
 func pushToQueue(name string, proc func(out *task.Output) error) task.Task {
-	acquireDatabaseConnection()
-	defer releaseDatabaseConnection()
 
-	return context.Queue().Push(name, proc)
+	return context.Queue().Push(name, func(out *task.Output) error {
+		err := acquireDatabaseConnection()
+
+		if err != nil {
+			return err
+		}
+
+		defer releaseDatabaseConnection()
+		return proc(out)
+	})
 }
 
 // Common piece of code to show list of packages,
