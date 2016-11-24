@@ -25,7 +25,7 @@ class PublishAPITestRepo(APITest):
                          "pyspi_0.6.1-1.3.diff.gz", "pyspi_0.6.1.orig.tar.gz",
                          "pyspi-0.6.1-1.3.stripped.dsc").status_code, 200)
 
-        self.check_equal(self.post("/api/repos/" + repo_name + "/file/" + d).status_code, 200)
+        self.check_equal(self.post_task("/api/repos/" + repo_name + "/file/" + d).json()['State'], 2)
 
         # publishing under prefix, default distribution
         prefix = self.random_name()
@@ -112,7 +112,7 @@ class PublishSnapshotAPITest(APITest):
         self.check_equal(self.upload("/api/files/" + d,
                          "libboost-program-options-dev_1.49.0.1_i386.deb").status_code, 200)
 
-        self.check_equal(self.post("/api/repos/" + repo_name + "/file/" + d).status_code, 200)
+        self.check_equal(self.post_task("/api/repos/" + repo_name + "/file/" + d).json()['State'], 2)
 
         self.check_equal(self.post("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshot_name}).status_code, 201)
 
@@ -157,7 +157,7 @@ class PublishUpdateAPITestRepo(APITest):
                          "pyspi_0.6.1-1.3.dsc",
                          "pyspi_0.6.1-1.3.diff.gz", "pyspi_0.6.1.orig.tar.gz",
                          "pyspi-0.6.1-1.3.stripped.dsc").status_code, 200)
-        self.check_equal(self.post("/api/repos/" + repo_name + "/file/" + d).status_code, 200)
+        self.check_equal(self.post_task("/api/repos/" + repo_name + "/file/" + d).json()['State'], 2)
 
         prefix = self.random_name()
         resp = self.post("/api/publish/" + prefix,
@@ -176,7 +176,7 @@ class PublishUpdateAPITestRepo(APITest):
         d = self.random_name()
         self.check_equal(self.upload("/api/files/" + d,
                          "libboost-program-options-dev_1.49.0.1_i386.deb").status_code, 200)
-        self.check_equal(self.post("/api/repos/" + repo_name + "/file/" + d).status_code, 200)
+        self.check_equal(self.post_task("/api/repos/" + repo_name + "/file/" + d).json()['State'], 2)
 
         self.check_equal(self.delete_task("/api/repos/" + repo_name + "/packages/",
                          json={"PackageRefs": ['Psource pyspi 0.6.1-1.4 f8f1daa806004e89']}).json()['State'], 2)
@@ -221,7 +221,7 @@ class PublishSwitchAPITestRepo(APITest):
                          "pyspi_0.6.1-1.3.dsc",
                          "pyspi_0.6.1-1.3.diff.gz", "pyspi_0.6.1.orig.tar.gz",
                          "pyspi-0.6.1-1.3.stripped.dsc").status_code, 200)
-        self.check_equal(self.post("/api/repos/" + repo_name + "/file/" + d).status_code, 200)
+        self.check_equal(self.post_task("/api/repos/" + repo_name + "/file/" + d).json()['State'], 2)
 
         snapshot1_name = self.random_name()
         self.check_equal(self.post("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshot1_name}).status_code, 201)
@@ -254,7 +254,7 @@ class PublishSwitchAPITestRepo(APITest):
         d = self.random_name()
         self.check_equal(self.upload("/api/files/" + d,
                          "libboost-program-options-dev_1.49.0.1_i386.deb").status_code, 200)
-        self.check_equal(self.post("/api/repos/" + repo_name + "/file/" + d).status_code, 200)
+        self.check_equal(self.post_task("/api/repos/" + repo_name + "/file/" + d).json()['State'], 2)
 
         self.check_equal(self.delete_task("/api/repos/" + repo_name + "/packages/",
                          json={"PackageRefs": ['Psource pyspi 0.6.1-1.4 f8f1daa806004e89']}).json()['State'], 2)

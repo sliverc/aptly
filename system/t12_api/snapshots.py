@@ -57,7 +57,7 @@ class SnapshotsAPITestCreateFromRefs(APITest):
         d = self.random_name()
         self.check_equal(self.upload("/api/files/" + d,
                          "libboost-program-options-dev_1.49.0.1_i386.deb").status_code, 200)
-        self.check_equal(self.post("/api/repos/" + repo_name + "/file/" + d).status_code, 200)
+        self.check_equal(self.post_task("/api/repos/" + repo_name + "/file/" + d).json()['State'], 2)
 
         # create snapshot with empty snapshot as source and package
         snapshot = snapshot_desc.copy()
@@ -103,7 +103,7 @@ class SnapshotsAPITestCreateFromRepo(APITest):
         self.check_equal(self.upload("/api/files/" + d,
                          "libboost-program-options-dev_1.49.0.1_i386.deb").status_code, 200)
 
-        self.check_equal(self.post("/api/repos/" + repo_name + "/file/" + d).status_code, 200)
+        self.check_equal(self.post_task("/api/repos/" + repo_name + "/file/" + d).json()['State'], 2)
 
         resp = self.post("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshot_name})
         self.check_equal(resp.status_code, 201)
@@ -215,7 +215,7 @@ class SnapshotsAPITestSearch(APITest):
         self.check_equal(self.upload("/api/files/" + d,
                          "libboost-program-options-dev_1.49.0.1_i386.deb").status_code, 200)
 
-        self.check_equal(self.post("/api/repos/" + repo_name + "/file/" + d).status_code, 200)
+        self.check_equal(self.post_task("/api/repos/" + repo_name + "/file/" + d).json()['State'], 2)
 
         resp = self.post("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshot_name})
         self.check_equal(resp.status_code, 201)
@@ -249,7 +249,7 @@ class SnapshotsAPITestDiff(APITest):
         self.check_equal(self.upload("/api/files/" + d,
                          "libboost-program-options-dev_1.49.0.1_i386.deb").status_code, 200)
 
-        self.check_equal(self.post("/api/repos/" + repo_name + "/file/" + d).status_code, 200)
+        self.check_equal(self.post_task("/api/repos/" + repo_name + "/file/" + d).json()['State'], 2)
 
         resp = self.post("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshots[0]})
         self.check_equal(resp.status_code, 201)
