@@ -108,7 +108,8 @@ func apiMirrorsCreate(c *gin.Context) {
 		return
 	}
 
-	err = repo.Fetch(context.Downloader(), verifier)
+	downloader := context.NewDownloader(nil)
+	err = repo.Fetch(downloader, verifier)
 	if err != nil {
 		c.Fail(403, fmt.Errorf("unable to fetch mirror: %s", err))
 		return
@@ -207,7 +208,7 @@ func apiMirrorsPackages(c *gin.Context) {
 	reflist := repo.RefList()
 	result := []*deb.Package{}
 
-	list, err := deb.NewPackageListFromRefList(reflist, collectionFactory.PackageCollection(), context.Progress())
+	list, err := deb.NewPackageListFromRefList(reflist, collectionFactory.PackageCollection(), nil)
 	if err != nil {
 		c.Fail(404, err)
 		return
@@ -335,7 +336,7 @@ func apiMirrorsUpdate(c *gin.Context) {
 		return
 	}
 
-	downloader := http.NewDownloader(context.Config().DownloadConcurrency, b.DownloadLimit*1024, context.Progress())
+	downloader := http.NewDownloader(context.Config().DownloadConcurrency, b.DownloadLimit*1024, nil)
 	err = remote.Fetch(downloader, verifier)
 	if err != nil {
 		c.Fail(400, fmt.Errorf("unable to update: %s", err))
@@ -350,7 +351,7 @@ func apiMirrorsUpdate(c *gin.Context) {
 		}
 	}
 
-	err = remote.DownloadPackageIndexes(context.Progress(), downloader, collectionFactory, b.SkipComponentCheck)
+	err = remote.DownloadPackageIndexes(nil, downloader, collectionFactory, b.SkipComponentCheck)
 	if err != nil {
 		c.Fail(400, fmt.Errorf("unable to update: %s", err))
 		return
@@ -397,8 +398,9 @@ func apiMirrorsUpdate(c *gin.Context) {
 	// In separate goroutine (to avoid blocking main), push queue to downloader
 	ch := make(chan error, len(queue))
 	go func() {
+		downloader := context.NewDownloader(nil)
 		for _, task := range queue {
-			context.Downloader().DownloadWithChecksum(remote.PackageURL(task.RepoURI).String(), task.DestinationPath, ch, task.Checksums, b.SkipComponentCheck)
+			downloader.DownloadWithChecksum(remote.PackageURL(task.RepoURI).String(), task.DestinationPath, ch, task.Checksums, b.SkipComponentCheck)
 		}
 
 		queue = nil

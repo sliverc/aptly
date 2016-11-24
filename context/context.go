@@ -187,22 +187,36 @@ func (context *AptlyContext) _progress() aptly.Progress {
 	return context.progress
 }
 
+// NewDownloader returns instance of new downloader with given progress
+func (context *AptlyContext) NewDownloader(progress aptly.Progress) aptly.Downloader {
+	context.Lock()
+	defer context.Unlock()
+
+	return context.newDownloader(progress)
+}
+
+// NewDownloader returns instance of new downloader with given progress without locking
+// so it can be used for internal usage.
+func (context *AptlyContext) newDownloader(progress aptly.Progress) aptly.Downloader {
+	var downloadLimit int64
+	limitFlag := context.flags.Lookup("download-limit")
+	if limitFlag != nil {
+		downloadLimit = limitFlag.Value.Get().(int64)
+	}
+	if downloadLimit == 0 {
+		downloadLimit = context.config().DownloadLimit
+	}
+	return http.NewDownloader(context.config().DownloadConcurrency,
+		downloadLimit*1024, progress)
+}
+
 // Downloader returns instance of current downloader
 func (context *AptlyContext) Downloader() aptly.Downloader {
 	context.Lock()
 	defer context.Unlock()
 
 	if context.downloader == nil {
-		var downloadLimit int64
-		limitFlag := context.flags.Lookup("download-limit")
-		if limitFlag != nil {
-			downloadLimit = limitFlag.Value.Get().(int64)
-		}
-		if downloadLimit == 0 {
-			downloadLimit = context.config().DownloadLimit
-		}
-		context.downloader = http.NewDownloader(context.config().DownloadConcurrency,
-			downloadLimit*1024, context._progress())
+		context.downloader = context.newDownloader(context._progress())
 	}
 
 	return context.downloader
