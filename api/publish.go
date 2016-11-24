@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/smira/aptly/deb"
 	"github.com/smira/aptly/utils"
+	"github.com/smira/aptly/task"
 	"strings"
 )
 
@@ -109,6 +110,7 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 	}
 
 	var components []string
+	var names []string
 	var sources []interface{}
 	collectionFactory := context.NewCollectionFactory()
 
@@ -119,6 +121,7 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 
 		for _, source := range b.Sources {
 			components = append(components, source.Component)
+			names = append(names, source.Name)
 
 			snapshot, err = snapshotCollection.ByName(source.Name)
 			if err != nil {
@@ -141,6 +144,7 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 
 		for _, source := range b.Sources {
 			components = append(components, source.Component)
+			names = append(names, source.Name)
 
 			localRepo, err = localCollection.ByName(source.Name)
 			if err != nil {
@@ -162,39 +166,41 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 
 	collection := collectionFactory.PublishedRepoCollection()
 
-	published, err := deb.NewPublishedRepo(storage, prefix, b.Distribution, b.Architectures, components, sources, collectionFactory)
-	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to publish: %s", err))
-		return
-	}
-	published.Origin = b.Origin
-	published.Label = b.Label
+	taskName := fmt.Sprintf("Publish %s: %s", b.SourceKind, strings.Join(names, ", "))
+	task := pushToQueue(taskName, func(out *task.Output) error {
+		published, err := deb.NewPublishedRepo(storage, prefix, b.Distribution, b.Architectures, components, sources, collectionFactory)
+		if err != nil {
+			return fmt.Errorf("unable to publish: %s", err)
+		}
+		published.Origin = b.Origin
+		published.Label = b.Label
 
-	published.SkipContents = context.Config().SkipContentsPublishing
-	if b.SkipContents != nil {
-		published.SkipContents = *b.SkipContents
-	}
+		published.SkipContents = context.Config().SkipContentsPublishing
+		if b.SkipContents != nil {
+			published.SkipContents = *b.SkipContents
+		}
 
-	duplicate := collection.CheckDuplicate(published)
-	if duplicate != nil {
-		collectionFactory.PublishedRepoCollection().LoadComplete(duplicate, collectionFactory)
-		c.Fail(400, fmt.Errorf("prefix/distribution already used by another published repo: %s", duplicate))
-		return
-	}
+		duplicate := collection.CheckDuplicate(published)
+		if duplicate != nil {
+			collectionFactory.PublishedRepoCollection().LoadComplete(duplicate, collectionFactory)
+			return fmt.Errorf("prefix/distribution already used by another published repo: %s", duplicate)
+		}
 
-	err = published.Publish(context.PackagePool(), context, collectionFactory, signer, nil, b.ForceOverwrite)
-	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to publish: %s", err))
-		return
-	}
+		err = published.Publish(context.PackagePool(), context, collectionFactory, signer, out, b.ForceOverwrite)
+		if err != nil {
+			return fmt.Errorf("unable to publish: %s", err)
+		}
 
-	err = collection.Add(published)
-	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to save to DB: %s", err))
-		return
-	}
+		err = collection.Add(published)
+		if err != nil {
+			return fmt.Errorf("unable to save to DB: %s", err)
+		}
 
-	c.JSON(201, published)
+		return nil
+	})
+
+
+	c.JSON(202, task)
 }
 
 // PUT /publish/:prefix/:distribution

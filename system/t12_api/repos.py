@@ -64,12 +64,12 @@ class ReposAPITestCreateIndexDelete(APITest):
 
         self.check_equal(self.post("/api/repos/" + repo_name + "/snapshots", json={"Name": repo_name}).status_code, 201)
 
-        self.check_equal(self.post("/api/publish",
+        self.check_equal(self.post_task("/api/publish",
                          json={
                              "SourceKind": "local",
                              "Sources": [{"Name": repo_name}],
                              "Signing": DefaultSigningOptions,
-                         }).status_code, 201)
+                         }).json()['State'], 2)
 
         # repo is not deletable while it is published
         self.check_equal(self.delete("/api/repos/" + repo_name).status_code, 409)

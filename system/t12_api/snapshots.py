@@ -187,7 +187,7 @@ class SnapshotsAPITestCreateDelete(APITest):
         self.check_equal(self.get("/api/snapshots/" + snap1).status_code, 404)
 
         # deleting published snapshot
-        resp = self.post("/api/publish",
+        resp = self.post_task("/api/publish",
                          json={
                              "SourceKind": "snapshot",
                              "Distribution": "trusty",
@@ -195,7 +195,7 @@ class SnapshotsAPITestCreateDelete(APITest):
                              "Sources": [{"Name": snap2}],
                              "Signing": DefaultSigningOptions,
                          })
-        self.check_equal(resp.status_code, 201)
+        self.check_equal(resp.json()['State'], 2)
 
         self.check_equal(self.delete("/api/snapshots/" + snap2).status_code, 409)
         self.check_equal(self.delete("/api/snapshots/" + snap2, params={"force": "1"}).status_code, 409)
