@@ -315,7 +315,7 @@ func apiPublishDrop(c *gin.Context) {
 	collection := collectionFactory.PublishedRepoCollection()
 
 	err := collection.Remove(context, storage, prefix, distribution,
-		collectionFactory, context.Progress(), force)
+		collectionFactory, nil, force)
 	if err != nil {
 		c.Fail(500, fmt.Errorf("unable to drop: %s", err))
 		return
