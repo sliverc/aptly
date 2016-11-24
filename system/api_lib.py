@@ -65,6 +65,16 @@ class APITest(BaseTest):
             kwargs["headers"]["Content-Type"] = "application/json"
         return requests.put("http://%s%s" % (self.base_url, uri), *args, **kwargs)
 
+    def put_task(self, uri, *args, **kwargs):
+        resp = self.put(uri, *args, **kwargs)
+        if resp.status_code != 202:
+            return resp
+
+        self.get("/api/tasks-wait")
+        _id = resp.json()['ID']
+
+        return self.get("/api/tasks/" + str(_id))
+
     def delete(self, uri, *args, **kwargs):
         if "json" in kwargs:
             kwargs["data"] = json.dumps(kwargs.pop("json"))

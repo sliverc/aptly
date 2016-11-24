@@ -55,14 +55,14 @@ class MirrorsAPITestCreateUpdate(APITest):
         self.check_equal(resp.status_code, 403)
 
         mirror_desc["Name"] = self.random_name()
-        resp = self.put("/api/mirrors/" + mirror_name, json=mirror_desc)
+        resp = self.put_task("/api/mirrors/" + mirror_name, json=mirror_desc)
+        self.check_equal(resp.json()["State"], 2)
+
+        resp = self.get("/api/mirrors/" + mirror_desc["Name"])
         self.check_equal(resp.status_code, 200)
         self.check_subset({u'Name': mirror_desc["Name"],
                            u'ArchiveRoot': 'http://repo.varnish-cache.org/debian/',
                            u'Distribution': 'wheezy'}, resp.json())
-
-        resp = self.get("/api/mirrors/" + mirror_desc["Name"])
-        self.check_equal(resp.status_code, 200)
 
         resp = self.get("/api/mirrors/" + mirror_desc["Name"] + "/packages")
         self.check_equal(resp.status_code, 200)

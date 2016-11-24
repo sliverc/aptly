@@ -6,7 +6,7 @@ import (
 	"strings"
 	"github.com/gin-gonic/gin"
 	"github.com/smira/aptly/deb"
-	"github.com/smira/aptly/http"
+	"github.com/smira/aptly/task"
 	"github.com/smira/aptly/query"
 	"github.com/smira/aptly/utils"
 )
@@ -336,90 +336,86 @@ func apiMirrorsUpdate(c *gin.Context) {
 		return
 	}
 
-	downloader := http.NewDownloader(context.Config().DownloadConcurrency, b.DownloadLimit*1024, nil)
-	err = remote.Fetch(downloader, verifier)
-	if err != nil {
-		c.Fail(400, fmt.Errorf("unable to update: %s", err))
-		return
-	}
-
-	if !b.ForceUpdate {
-		err = remote.CheckLock()
+	task := pushToQueue("Update mirror " + b.Name, func(out *task.Output) error {
+		downloader := context.NewDownloader(out)
+		err = remote.Fetch(downloader, verifier)
 		if err != nil {
-			c.Fail(409, fmt.Errorf("unable to update: %s", err))
-			return
-		}
-	}
-
-	err = remote.DownloadPackageIndexes(nil, downloader, collectionFactory, b.SkipComponentCheck)
-	if err != nil {
-		c.Fail(400, fmt.Errorf("unable to update: %s", err))
-		return
-	}
-
-	if remote.Filter != "" {
-		var filterQuery deb.PackageQuery
-
-		filterQuery, err = query.Parse(remote.Filter)
-		if err != nil {
-			c.Fail(400, fmt.Errorf("unable to update: %s", err))
-			return
+			return fmt.Errorf("unable to update: %s", err)
 		}
 
-		_, _, err = remote.ApplyFilter(context.DependencyOptions(), filterQuery)
-		if err != nil {
-			c.Fail(400, fmt.Errorf("unable to update: %s", err))
-			return
-		}
-	}
-
-	queue, _, err := remote.BuildDownloadQueue(context.PackagePool())
-	if err != nil {
-		c.Fail(400, fmt.Errorf("unable to update: %s", err))
-		return
-	}
-
-	defer func() {
-		// on any interruption, unlock the mirror
-		err := context.ReOpenDatabase()
-		if err == nil {
-			remote.MarkAsIdle()
-			collection.Update(remote)
-		}
-	}()
-
-	remote.MarkAsUpdating()
-	err = collection.Update(remote)
-	if err != nil {
-		c.Fail(400, fmt.Errorf("unable to update: %s", err))
-		return
-	}
-
-	// In separate goroutine (to avoid blocking main), push queue to downloader
-	ch := make(chan error, len(queue))
-	go func() {
-		downloader := context.NewDownloader(nil)
-		for _, task := range queue {
-			downloader.DownloadWithChecksum(remote.PackageURL(task.RepoURI).String(), task.DestinationPath, ch, task.Checksums, b.SkipComponentCheck)
-		}
-
-		queue = nil
-	}()
-
-	// Wait for all downloads to finish
-	var errors []string
-	count := len(queue)
-
-	for count > 0 {
-		select {
-		case err = <-ch:
+		if !b.ForceUpdate {
+			err = remote.CheckLock()
 			if err != nil {
-				errors = append(errors, err.Error())
+				return fmt.Errorf("unable to update: %s", err)
 			}
-			count--
 		}
-	}
 
-	remote.FinalizeDownload()
-	c.JSON(200, remote)
+		err = remote.DownloadPackageIndexes(out, downloader, collectionFactory, b.SkipComponentCheck)
+		if err != nil {
+			return fmt.Errorf("unable to update: %s", err)
+		}
+
+		if remote.Filter != "" {
+			var filterQuery deb.PackageQuery
+
+			filterQuery, err = query.Parse(remote.Filter)
+			if err != nil {
+				return fmt.Errorf("unable to update: %s", err)
+			}
+
+			_, _, err = remote.ApplyFilter(context.DependencyOptions(), filterQuery)
+			if err != nil {
+				return fmt.Errorf("unable to update: %s", err)
+			}
+		}
+
+		queue, _, err := remote.BuildDownloadQueue(context.PackagePool())
+		if err != nil {
+			return fmt.Errorf("unable to update: %s", err)
+		}
+
+		defer func() {
+			// on any interruption, unlock the mirror
+			err := context.ReOpenDatabase()
+			if err == nil {
+				remote.MarkAsIdle()
+				collection.Update(remote)
+			}
+		}()
+
+		remote.MarkAsUpdating()
+		err = collection.Update(remote)
+		if err != nil {
+			return fmt.Errorf("unable to update: %s", err)
+		}
+
+		// In separate goroutine (to avoid blocking main), push queue to downloader
+		ch := make(chan error, len(queue))
+		go func() {
+			for _, task := range queue {
+				downloader.DownloadWithChecksum(remote.PackageURL(task.RepoURI).String(), task.DestinationPath, ch, task.Checksums, b.SkipComponentCheck)
+			}
+
+			queue = nil
+		}()
+
+		// Wait for all downloads to finish
+		var errors []string
+		count := len(queue)
+
+		for count > 0 {
+			select {
+			case err = <-ch:
+				if err != nil {
+					errors = append(errors, err.Error())
+				}
+				count--
+			}
+		}
+
+		remote.FinalizeDownload()
+		return nil
+	})
+
+	c.JSON(202, task)
 }
