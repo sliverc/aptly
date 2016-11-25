@@ -325,12 +325,16 @@ func apiPublishDrop(c *gin.Context) {
 	collectionFactory := context.NewCollectionFactory()
 	collection := collectionFactory.PublishedRepoCollection()
 
-	err := collection.Remove(context, storage, prefix, distribution,
-		collectionFactory, nil, force)
-	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to drop: %s", err))
-		return
-	}
+	taskName := fmt.Sprintf("Delete published %s (%s)", prefix, distribution)
+	task := pushToQueue(taskName, func(out *task.Output) error {
+		err := collection.Remove(context, storage, prefix, distribution,
+			collectionFactory, out, force)
+		if err != nil {
+			return fmt.Errorf("unable to drop: %s", err)
+		}
 
-	c.JSON(200, gin.H{})
+		return nil
+	})
+
+	c.JSON(202, task)
 }

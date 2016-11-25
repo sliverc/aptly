@@ -208,7 +208,7 @@ class PublishUpdateAPITestRepo(APITest):
         self.check_exists("public/" + prefix + "/pool/main/b/boost-defaults/libboost-program-options-dev_1.49.0.1_i386.deb")
         self.check_not_exists("public/" + prefix + "/pool/main/p/pyspi/pyspi-0.6.1-1.3.stripped.dsc")
 
-        self.check_equal(self.delete("/api/publish/" + prefix + "/wheezy").status_code, 200)
+        self.check_equal(self.delete_task("/api/publish/" + prefix + "/wheezy").json()['State'], 2)
         self.check_not_exists("public/" + prefix + "dists/")
 
 
@@ -295,5 +295,5 @@ class PublishSwitchAPITestRepo(APITest):
         self.check_exists("public/" + prefix + "/pool/main/b/boost-defaults/libboost-program-options-dev_1.49.0.1_i386.deb")
         self.check_not_exists("public/" + prefix + "/pool/main/p/pyspi/pyspi-0.6.1-1.3.stripped.dsc")
 
-        self.check_equal(self.delete("/api/publish/" + prefix + "/wheezy").status_code, 200)
+        self.check_equal(self.delete_task("/api/publish/" + prefix + "/wheezy").json()['State'], 2)
         self.check_not_exists("public/" + prefix + "dists/")

@@ -93,6 +93,16 @@ class APITest(BaseTest):
 
         return self.get("/api/tasks/" + str(_id))
 
+    def delete_task(self, uri, *args, **kwargs):
+        resp = self.delete(uri, *args, **kwargs)
+        if resp.status_code != 202:
+            return resp
+
+        self.get("/api/tasks-wait")
+        _id = resp.json()['ID']
+
+        return self.get("/api/tasks/" + str(_id))
+
     def upload(self, uri, *filenames, **kwargs):
         upload_name = kwargs.pop("upload_name", None)
         directory = kwargs.pop("directory", "files")

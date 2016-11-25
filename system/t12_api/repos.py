@@ -76,7 +76,7 @@ class ReposAPITestCreateIndexDelete(APITest):
         self.check_equal(self.delete("/api/repos/" + repo_name, params={"force": "1"}).status_code, 409)
 
         # drop published
-        self.check_equal(self.delete("/api/publish//" + distribution).status_code, 200)
+        self.check_equal(self.delete_task("/api/publish//" + distribution).json()['State'], 2)
         self.check_equal(self.delete("/api/repos/" + repo_name).status_code, 409)
         self.check_equal(self.delete("/api/repos/" + repo_name, params={"force": "1"}).status_code, 200)
         self.check_equal(self.get("/api/repos/" + repo_name).status_code, 404)
