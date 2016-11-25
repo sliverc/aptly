@@ -63,10 +63,13 @@ func NewQueue() *Queue {
 }
 
 // GetTasks gets complete list of tasks
-// TODO should be a slice of task values
-func (q *Queue) GetTasks() []*Task {
+func (q *Queue) GetTasks() []Task {
+	var tasks []Task
 	q.Lock()
-	tasks := q.tasks
+	for _, task := range q.tasks {
+		tasks = append(tasks, *task)
+	}
+
 	q.Unlock()
 	return tasks
 }
