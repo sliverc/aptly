@@ -185,10 +185,11 @@ class PublishUpdateAPITestRepo(APITest):
         self.check_equal(self.delete_task("/api/repos/" + repo_name + "/packages/",
                          json={"PackageRefs": ['Psource pyspi 0.6.1-1.4 f8f1daa806004e89']}).json()['State'], 2)
 
-        resp = self.put("/api/publish/" + prefix + "/wheezy",
+        resp = self.put_task("/api/publish/" + prefix + "/wheezy",
                         json={
                             "Signing": DefaultSigningOptions,
                         })
+        self.check_equal(resp.json()['State'], 2)
         repo_expected = {
             'Architectures': ['i386', 'source'],
             'Distribution': 'wheezy',
@@ -200,8 +201,9 @@ class PublishUpdateAPITestRepo(APITest):
             'Sources': [{'Component': 'main', 'Name': repo_name}],
             'Storage': ''}
 
-        self.check_equal(resp.status_code, 200)
-        self.check_equal(resp.json(), repo_expected)
+        all_repos = self.get("/api/publish")
+        self.check_equal(all_repos.status_code, 200)
+        self.check_in(repo_expected, all_repos.json())
 
         self.check_exists("public/" + prefix + "/pool/main/b/boost-defaults/libboost-program-options-dev_1.49.0.1_i386.deb")
         self.check_not_exists("public/" + prefix + "/pool/main/p/pyspi/pyspi-0.6.1-1.3.stripped.dsc")
@@ -268,12 +270,13 @@ class PublishSwitchAPITestRepo(APITest):
         snapshot2_name = self.random_name()
         self.check_equal(self.post("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshot2_name}).status_code, 201)
 
-        resp = self.put("/api/publish/" + prefix + "/wheezy",
+        resp = self.put_task("/api/publish/" + prefix + "/wheezy",
                         json={
                             "Snapshots": [{"Component": "main", "Name": snapshot2_name}],
                             "Signing": DefaultSigningOptions,
                             "SkipContents": True,
                         })
+        self.check_equal(resp.json()['State'], 2)
         repo_expected = {
             'Architectures': ['i386', 'source'],
             'Distribution': 'wheezy',
@@ -285,8 +288,9 @@ class PublishSwitchAPITestRepo(APITest):
             'Sources': [{'Component': 'main', 'Name': snapshot2_name}],
             'Storage': ''}
 
-        self.check_equal(resp.status_code, 200)
-        self.check_equal(resp.json(), repo_expected)
+        all_repos = self.get("/api/publish")
+        self.check_equal(all_repos.status_code, 200)
+        self.check_in(repo_expected, all_repos.json())
 
         self.check_exists("public/" + prefix + "/pool/main/b/boost-defaults/libboost-program-options-dev_1.49.0.1_i386.deb")
         self.check_not_exists("public/" + prefix + "/pool/main/p/pyspi/pyspi-0.6.1-1.3.stripped.dsc")

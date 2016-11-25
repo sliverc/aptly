@@ -244,6 +244,7 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 	}
 
 	var updatedComponents []string
+	var updatedSnapshots []string
 
 	if published.SourceKind == "local" {
 		if len(b.Snapshots) > 0 {
@@ -277,6 +278,7 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 
 			published.UpdateSnapshot(snapshotInfo.Component, snapshot)
 			updatedComponents = append(updatedComponents, snapshotInfo.Component)
+			updatedSnapshots = append(updatedSnapshots, snapshot.Name)
 		}
 	} else {
 		c.Fail(500, fmt.Errorf("unknown published repository type"))
@@ -287,26 +289,29 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 		published.SkipContents = *b.SkipContents
 	}
 
-	err = published.Publish(context.PackagePool(), context, collectionFactory, signer, nil, b.ForceOverwrite)
-	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to update: %s", err))
-		return
-	}
+	taskName := fmt.Sprintf("Update published %s (%s): %s", published.SourceKind, strings.Join(updatedComponents, " "), strings.Join(updatedSnapshots, ", "))
+	task := pushToQueue(taskName, func(out *task.Output) error {
+		err = published.Publish(context.PackagePool(), context, collectionFactory, signer, out, b.ForceOverwrite)
+		if err != nil {
+			return fmt.Errorf("unable to update: %s", err)
+		}
 
-	err = collection.Update(published)
-	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to save to DB: %s", err))
-		return
-	}
+		err = collection.Update(published)
+		if err != nil {
+			return fmt.Errorf("unable to save to DB: %s", err)
+		}
 
-	err = collection.CleanupPrefixComponentFiles(published.Prefix, updatedComponents,
-		context.GetPublishedStorage(storage), collectionFactory, nil)
-	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to update: %s", err))
-		return
-	}
+		err = collection.CleanupPrefixComponentFiles(published.Prefix, updatedComponents,
+			context.GetPublishedStorage(storage), collectionFactory, out)
+		if err != nil {
+			return fmt.Errorf("unable to update: %s", err)
+		}
 
-	c.JSON(200, published)
+		return nil
+	})
+
+
+	c.JSON(202, task)
 }
 
 // DELETE /publish/:prefix/:distribution
