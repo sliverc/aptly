@@ -2,13 +2,16 @@ package api
 
 import (
 	"fmt"
+	"strings"
+	"os"
+	"path/filepath"
+
 	"github.com/gin-gonic/gin"
 	"github.com/smira/aptly/aptly"
 	"github.com/smira/aptly/database"
 	"github.com/smira/aptly/deb"
+	"github.com/smira/aptly/task"
 	"github.com/smira/aptly/utils"
-	"os"
-	"path/filepath"
 )
 
 // GET /api/repos
@@ -166,7 +169,7 @@ func apiReposPackagesShow(c *gin.Context) {
 }
 
 // Handler for both add and delete
-func apiReposPackagesAddDelete(c *gin.Context, cb func(list *deb.PackageList, p *deb.Package) error) {
+func apiReposPackagesAddDelete(c *gin.Context, taskNamePrefix string, cb func(list *deb.PackageList, p *deb.Package, out *task.Output) error) {
 	var b struct {
 		PackageRefs []string
 	}
@@ -190,54 +193,51 @@ func apiReposPackagesAddDelete(c *gin.Context, cb func(list *deb.PackageList, p 
 		return
 	}
 
-	list, err := deb.NewPackageListFromRefList(repo.RefList(), collectionFactory.PackageCollection(), nil)
-	if err != nil {
-		c.Fail(500, err)
-		return
-	}
-
-	// verify package refs and build package list
-	for _, ref := range b.PackageRefs {
-		var p *deb.Package
-
-		p, err = collectionFactory.PackageCollection().ByKey([]byte(ref))
+	task := pushToQueue(taskNamePrefix + repo.Name, func(out *task.Output) error {
+		fmt.Fprintln(out, "Loading packages...")
+		list, err := deb.NewPackageListFromRefList(repo.RefList(), collectionFactory.PackageCollection(), nil)
 		if err != nil {
-			if err == database.ErrNotFound {
-				c.Fail(404, fmt.Errorf("package %s: %s", ref, err))
-			} else {
-				c.Fail(500, err)
+			return err
+		}
+
+		// verify package refs and build package list
+		for _, ref := range b.PackageRefs {
+			var p *deb.Package
+
+			p, err = collectionFactory.PackageCollection().ByKey([]byte(ref))
+			if err != nil {
+				if err == database.ErrNotFound {
+					return fmt.Errorf("packages %s: %s", ref, err)
+				}
+
+				return err
 			}
-			return
+			err = cb(list, p, out)
+			if err != nil {
+				return err
+			}
 		}
-		err = cb(list, p)
-		if err != nil {
-			c.Fail(400, err)
-			return
-		}
-	}
 
-	repo.UpdateRefList(deb.NewPackageRefListFromPackageList(list))
+		repo.UpdateRefList(deb.NewPackageRefListFromPackageList(list))
 
-	err = collectionFactory.LocalRepoCollection().Update(repo)
-	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to save: %s", err))
-		return
-	}
+		return collectionFactory.LocalRepoCollection().Update(repo)
+	})
 
-	c.JSON(200, repo)
-
+	c.JSON(202, task)
 }
 
 // POST /repos/:name/packages
 func apiReposPackagesAdd(c *gin.Context) {
-	apiReposPackagesAddDelete(c, func(list *deb.PackageList, p *deb.Package) error {
+	apiReposPackagesAddDelete(c, "Add packages to repo ", func(list *deb.PackageList, p *deb.Package, out *task.Output) error {
+		fmt.Fprintf(out, "Adding package %s", p.Name)
 		return list.Add(p)
 	})
 }
 
 // DELETE /repos/:name/packages
 func apiReposPackagesDelete(c *gin.Context) {
-	apiReposPackagesAddDelete(c, func(list *deb.PackageList, p *deb.Package) error {
+	apiReposPackagesAddDelete(c, "Delete packages from repo ", func(list *deb.PackageList, p *deb.Package, out *task.Output) error {
+		fmt.Fprintf(out, "Removing package %s", p.Name)
 		list.Remove(p)
 		return nil
 	})
@@ -258,6 +258,7 @@ func apiReposPackageFromDir(c *gin.Context) {
 		return
 	}
 
+	dirParam := c.Params.ByName("dir")
 	fileParam := c.Params.ByName("file")
 	if fileParam != "" && !verifyPath(fileParam) {
 		c.Fail(400, fmt.Errorf("wrong file"))
@@ -267,7 +268,8 @@ func apiReposPackageFromDir(c *gin.Context) {
 	collectionFactory := context.NewCollectionFactory()
 	collection := collectionFactory.LocalRepoCollection()
 
-	repo, err := collection.ByName(c.Params.ByName("name"))
+	name := c.Params.ByName("name")
+	repo, err := collection.ByName(name)
 	if err != nil {
 		c.Fail(404, err)
 		return
@@ -279,71 +281,86 @@ func apiReposPackageFromDir(c *gin.Context) {
 		return
 	}
 
-	verifier := &utils.GpgVerifier{}
-
-	var (
-		sources                      []string
-		packageFiles, failedFiles    []string
-		processedFiles, failedFiles2 []string
-		reporter                     = &aptly.RecordingResultReporter{
-			Warnings:     []string{},
-			AddedLines:   []string{},
-			RemovedLines: []string{},
-		}
-		list *deb.PackageList
-	)
-
-	if fileParam == "" {
-		sources = []string{filepath.Join(context.UploadPath(), c.Params.ByName("dir"))}
-	} else {
-		sources = []string{filepath.Join(context.UploadPath(), c.Params.ByName("dir"), c.Params.ByName("file"))}
+	taskName := fmt.Sprintf("Add packages from dir %s to repo %s", dirParam, name)
+	if fileParam != "" {
+		taskName = fmt.Sprintf("Add package %s from dir %s to repo %s", fileParam, dirParam, name)
 	}
+	task := pushToQueue(taskName, func(out *task.Output) error {
+		verifier := &utils.GpgVerifier{}
 
-	packageFiles, failedFiles = deb.CollectPackageFiles(sources, reporter)
-
-	list, err = deb.NewPackageListFromRefList(repo.RefList(), collectionFactory.PackageCollection(), nil)
-	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to load packages: %s", err))
-		return
-	}
-
-	processedFiles, failedFiles2, err = deb.ImportPackageFiles(list, packageFiles, forceReplace, verifier, context.PackagePool(),
-		collectionFactory.PackageCollection(), reporter, nil)
-	failedFiles = append(failedFiles, failedFiles2...)
-
-	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to import package files: %s", err))
-		return
-	}
-
-	repo.UpdateRefList(deb.NewPackageRefListFromPackageList(list))
-
-	err = collectionFactory.LocalRepoCollection().Update(repo)
-	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to save: %s", err))
-		return
-	}
-
-	if !noRemove {
-		processedFiles = utils.StrSliceDeduplicate(processedFiles)
-
-		for _, file := range processedFiles {
-			err := os.Remove(file)
-			if err != nil {
-				reporter.Warning("unable to remove file %s: %s", file, err)
+		var (
+			sources                      []string
+			packageFiles, failedFiles    []string
+			processedFiles, failedFiles2 []string
+			reporter                     = &aptly.RecordingResultReporter{
+				Warnings:     []string{},
+				AddedLines:   []string{},
+				RemovedLines: []string{},
 			}
+			list *deb.PackageList
+		)
+
+		if fileParam == "" {
+			sources = []string{filepath.Join(context.UploadPath(), dirParam)}
+		} else {
+			sources = []string{filepath.Join(context.UploadPath(), dirParam, fileParam)}
 		}
 
-		// atempt to remove dir, if it fails, that's fine: probably it's not empty
-		os.Remove(filepath.Join(context.UploadPath(), c.Params.ByName("dir")))
-	}
+		packageFiles, failedFiles = deb.CollectPackageFiles(sources, reporter)
 
-	if failedFiles == nil {
-		failedFiles = []string{}
-	}
+		list, err = deb.NewPackageListFromRefList(repo.RefList(), collectionFactory.PackageCollection(), nil)
+		if err != nil {
+			return fmt.Errorf("unable to load packages: %s", err)
+		}
 
-	c.JSON(200, gin.H{
-		"Report":      reporter,
-		"FailedFiles": failedFiles,
+		processedFiles, failedFiles2, err = deb.ImportPackageFiles(list, packageFiles, forceReplace, verifier, context.PackagePool(),
+			collectionFactory.PackageCollection(), reporter, nil)
+		failedFiles = append(failedFiles, failedFiles2...)
+
+		if err != nil {
+			return fmt.Errorf("unable to import package files: %s", err)
+		}
+
+		repo.UpdateRefList(deb.NewPackageRefListFromPackageList(list))
+
+		err = collectionFactory.LocalRepoCollection().Update(repo)
+		if err != nil {
+			return fmt.Errorf("unable to save: %s", err)
+		}
+
+		if !noRemove {
+			processedFiles = utils.StrSliceDeduplicate(processedFiles)
+
+			for _, file := range processedFiles {
+				err := os.Remove(file)
+				if err != nil {
+					reporter.Warning("unable to remove file %s: %s", file, err)
+				}
+			}
+
+			// atempt to remove dir, if it fails, that's fine: probably it's not empty
+			os.Remove(filepath.Join(context.UploadPath(), dirParam))
+		}
+
+		if failedFiles == nil {
+			failedFiles = []string{}
+		}
+
+		if len(reporter.AddedLines) > 0 {
+			fmt.Fprintf(out, "Added: %s", strings.Join(reporter.AddedLines, ", "))
+		}
+		if len(reporter.RemovedLines) > 0 {
+			fmt.Fprintf(out, "Removed: %s", strings.Join(reporter.RemovedLines, ", "))
+		}
+		if len(reporter.Warnings) > 0 {
+			fmt.Fprintf(out, "Warnings: %s", strings.Join(reporter.Warnings, ", "))
+		}
+		if len(failedFiles) > 0 {
+			fmt.Fprintf(out, "Failed files: %s", strings.Join(failedFiles, ", "))
+		}
+
+		return nil
 	})
+
+	c.JSON(202, task)
 }

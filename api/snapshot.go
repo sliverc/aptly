@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/smira/aptly/database"
 	"github.com/smira/aptly/deb"
+	"github.com/smira/aptly/task"
 )
 
 // GET /api/snapshots
@@ -128,37 +129,32 @@ func apiSnapshotsCreate(c *gin.Context) {
 		}
 	}
 
-	list := deb.NewPackageList()
+	task := pushToQueue("Create snapshot " + b.Name, func(out *task.Output) error {
+		list := deb.NewPackageList()
 
-	// verify package refs and build package list
-	for _, ref := range b.PackageRefs {
-		var p *deb.Package
+		// verify package refs and build package list
+		for _, ref := range b.PackageRefs {
+			var p *deb.Package
 
-		p, err = collectionFactory.PackageCollection().ByKey([]byte(ref))
-		if err != nil {
-			if err == database.ErrNotFound {
-				c.Fail(404, fmt.Errorf("package %s: %s", ref, err))
-			} else {
-				c.Fail(500, err)
+			p, err = collectionFactory.PackageCollection().ByKey([]byte(ref))
+			if err != nil {
+				if err == database.ErrNotFound {
+					return fmt.Errorf("package %s: %s", ref, err)
+				}
+				return err
 			}
-			return
+			err = list.Add(p)
+			if err != nil {
+				return err
+			}
 		}
-		err = list.Add(p)
-		if err != nil {
-			c.Fail(400, err)
-			return
-		}
-	}
 
-	snapshot = deb.NewSnapshotFromRefList(b.Name, sources, deb.NewPackageRefListFromPackageList(list), b.Description)
+		snapshot = deb.NewSnapshotFromRefList(b.Name, sources, deb.NewPackageRefListFromPackageList(list), b.Description)
 
-	err = snapshotCollection.Add(snapshot)
-	if err != nil {
-		c.Fail(400, err)
-		return
-	}
+		return snapshotCollection.Add(snapshot)
+	})
 
-	c.JSON(201, snapshot)
+	c.JSON(202, task)
 }
 
 // POST /api/repos/:name/snapshots

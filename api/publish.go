@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/smira/aptly/deb"
 	"github.com/smira/aptly/utils"
+	"github.com/smira/aptly/task"
 	"strings"
 )
 
@@ -109,6 +110,7 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 	}
 
 	var components []string
+	var names []string
 	var sources []interface{}
 	collectionFactory := context.NewCollectionFactory()
 
@@ -119,6 +121,7 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 
 		for _, source := range b.Sources {
 			components = append(components, source.Component)
+			names = append(names, source.Name)
 
 			snapshot, err = snapshotCollection.ByName(source.Name)
 			if err != nil {
@@ -141,6 +144,7 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 
 		for _, source := range b.Sources {
 			components = append(components, source.Component)
+			names = append(names, source.Name)
 
 			localRepo, err = localCollection.ByName(source.Name)
 			if err != nil {
@@ -162,39 +166,41 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 
 	collection := collectionFactory.PublishedRepoCollection()
 
-	published, err := deb.NewPublishedRepo(storage, prefix, b.Distribution, b.Architectures, components, sources, collectionFactory)
-	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to publish: %s", err))
-		return
-	}
-	published.Origin = b.Origin
-	published.Label = b.Label
+	taskName := fmt.Sprintf("Publish %s: %s", b.SourceKind, strings.Join(names, ", "))
+	task := pushToQueue(taskName, func(out *task.Output) error {
+		published, err := deb.NewPublishedRepo(storage, prefix, b.Distribution, b.Architectures, components, sources, collectionFactory)
+		if err != nil {
+			return fmt.Errorf("unable to publish: %s", err)
+		}
+		published.Origin = b.Origin
+		published.Label = b.Label
 
-	published.SkipContents = context.Config().SkipContentsPublishing
-	if b.SkipContents != nil {
-		published.SkipContents = *b.SkipContents
-	}
+		published.SkipContents = context.Config().SkipContentsPublishing
+		if b.SkipContents != nil {
+			published.SkipContents = *b.SkipContents
+		}
 
-	duplicate := collection.CheckDuplicate(published)
-	if duplicate != nil {
-		collectionFactory.PublishedRepoCollection().LoadComplete(duplicate, collectionFactory)
-		c.Fail(400, fmt.Errorf("prefix/distribution already used by another published repo: %s", duplicate))
-		return
-	}
+		duplicate := collection.CheckDuplicate(published)
+		if duplicate != nil {
+			collectionFactory.PublishedRepoCollection().LoadComplete(duplicate, collectionFactory)
+			return fmt.Errorf("prefix/distribution already used by another published repo: %s", duplicate)
+		}
 
-	err = published.Publish(context.PackagePool(), context, collectionFactory, signer, nil, b.ForceOverwrite)
-	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to publish: %s", err))
-		return
-	}
+		err = published.Publish(context.PackagePool(), context, collectionFactory, signer, out, b.ForceOverwrite)
+		if err != nil {
+			return fmt.Errorf("unable to publish: %s", err)
+		}
 
-	err = collection.Add(published)
-	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to save to DB: %s", err))
-		return
-	}
+		err = collection.Add(published)
+		if err != nil {
+			return fmt.Errorf("unable to save to DB: %s", err)
+		}
 
-	c.JSON(201, published)
+		return nil
+	})
+
+
+	c.JSON(202, task)
 }
 
 // PUT /publish/:prefix/:distribution
@@ -238,6 +244,7 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 	}
 
 	var updatedComponents []string
+	var updatedSnapshots []string
 
 	if published.SourceKind == "local" {
 		if len(b.Snapshots) > 0 {
@@ -271,6 +278,7 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 
 			published.UpdateSnapshot(snapshotInfo.Component, snapshot)
 			updatedComponents = append(updatedComponents, snapshotInfo.Component)
+			updatedSnapshots = append(updatedSnapshots, snapshot.Name)
 		}
 	} else {
 		c.Fail(500, fmt.Errorf("unknown published repository type"))
@@ -281,26 +289,29 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 		published.SkipContents = *b.SkipContents
 	}
 
-	err = published.Publish(context.PackagePool(), context, collectionFactory, signer, nil, b.ForceOverwrite)
-	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to update: %s", err))
-		return
-	}
+	taskName := fmt.Sprintf("Update published %s (%s): %s", published.SourceKind, strings.Join(updatedComponents, " "), strings.Join(updatedSnapshots, ", "))
+	task := pushToQueue(taskName, func(out *task.Output) error {
+		err = published.Publish(context.PackagePool(), context, collectionFactory, signer, out, b.ForceOverwrite)
+		if err != nil {
+			return fmt.Errorf("unable to update: %s", err)
+		}
 
-	err = collection.Update(published)
-	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to save to DB: %s", err))
-		return
-	}
+		err = collection.Update(published)
+		if err != nil {
+			return fmt.Errorf("unable to save to DB: %s", err)
+		}
 
-	err = collection.CleanupPrefixComponentFiles(published.Prefix, updatedComponents,
-		context.GetPublishedStorage(storage), collectionFactory, nil)
-	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to update: %s", err))
-		return
-	}
+		err = collection.CleanupPrefixComponentFiles(published.Prefix, updatedComponents,
+			context.GetPublishedStorage(storage), collectionFactory, out)
+		if err != nil {
+			return fmt.Errorf("unable to update: %s", err)
+		}
 
-	c.JSON(200, published)
+		return nil
+	})
+
+
+	c.JSON(202, task)
 }
 
 // DELETE /publish/:prefix/:distribution
@@ -314,12 +325,16 @@ func apiPublishDrop(c *gin.Context) {
 	collectionFactory := context.NewCollectionFactory()
 	collection := collectionFactory.PublishedRepoCollection()
 
-	err := collection.Remove(context, storage, prefix, distribution,
-		collectionFactory, context.Progress(), force)
-	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to drop: %s", err))
-		return
-	}
+	taskName := fmt.Sprintf("Delete published %s (%s)", prefix, distribution)
+	task := pushToQueue(taskName, func(out *task.Output) error {
+		err := collection.Remove(context, storage, prefix, distribution,
+			collectionFactory, out, force)
+		if err != nil {
+			return fmt.Errorf("unable to drop: %s", err)
+		}
 
-	c.JSON(200, gin.H{})
+		return nil
+	})
+
+	c.JSON(202, task)
 }

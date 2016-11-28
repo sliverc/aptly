@@ -12,9 +12,8 @@ class SnapshotsAPITestCreateShowEmpty(APITest):
                          u'Name': snapshot_name}
 
         # create empty snapshot
-        resp = self.post("/api/snapshots", json=snapshot_desc)
-        self.check_subset(snapshot_desc, resp.json())
-        self.check_equal(resp.status_code, 201)
+        resp = self.post_task("/api/snapshots", json=snapshot_desc)
+        self.check_equal(resp.json()['State'], 2)
 
         self.check_subset(snapshot_desc, self.get("/api/snapshots/" + snapshot_name).json())
         self.check_equal(self.get("/api/snapshots/" + snapshot_name).status_code, 200)
@@ -26,8 +25,8 @@ class SnapshotsAPITestCreateShowEmpty(APITest):
         self.check_equal(self.get("/api/snapshots/" + self.random_name()).status_code, 404)
 
         # create snapshot with duplicate name
-        resp = self.post("/api/snapshots", json=snapshot_desc)
-        self.check_equal(resp.status_code, 400)
+        resp = self.post_task("/api/snapshots", json=snapshot_desc)
+        self.check_equal(resp.json()['State'], 3)
 
 
 class SnapshotsAPITestCreateFromRefs(APITest):
@@ -47,9 +46,11 @@ class SnapshotsAPITestCreateFromRefs(APITest):
 
         # create empty snapshot
         empty_snapshot_name = self.random_name()
-        resp = self.post("/api/snapshots", json={"Name": empty_snapshot_name})
-        self.check_equal(resp.status_code, 201)
-        self.check_equal(resp.json()['Description'], 'Created as empty')
+        resp = self.post_task("/api/snapshots", json={"Name": empty_snapshot_name})
+        self.check_equal(resp.json()['State'], 2)
+        self.check_equal(
+            self.get("/api/snapshots/" + empty_snapshot_name).json()['Description'], "Created as empty"
+        )
 
         # create and upload package to repo to register package in DB
         repo_name = self.random_name()
@@ -57,16 +58,18 @@ class SnapshotsAPITestCreateFromRefs(APITest):
         d = self.random_name()
         self.check_equal(self.upload("/api/files/" + d,
                          "libboost-program-options-dev_1.49.0.1_i386.deb").status_code, 200)
-        self.check_equal(self.post("/api/repos/" + repo_name + "/file/" + d).status_code, 200)
+        self.check_equal(self.post_task("/api/repos/" + repo_name + "/file/" + d).json()['State'], 2)
 
         # create snapshot with empty snapshot as source and package
         snapshot = snapshot_desc.copy()
         snapshot['PackageRefs'] = ["Pi386 libboost-program-options-dev 1.49.0.1 918d2f433384e378"]
         snapshot['SourceSnapshots'] = [empty_snapshot_name]
-        resp = self.post("/api/snapshots", json=snapshot)
-        self.check_equal(resp.status_code, 201)
+        resp = self.post_task("/api/snapshots", json=snapshot)
+        self.check_equal(resp.json()['State'], 2)
         snapshot.pop('SourceSnapshots')
         snapshot.pop('PackageRefs')
+        resp = self.get("/api/snapshots/" + snapshot_name)
+        self.check_equal(resp.status_code, 200)
         self.check_subset(snapshot, resp.json())
 
         self.check_subset(snapshot, self.get("/api/snapshots/" + snapshot_name).json())
@@ -75,10 +78,10 @@ class SnapshotsAPITestCreateFromRefs(APITest):
         self.check_equal(resp.json(), ["Pi386 libboost-program-options-dev 1.49.0.1 918d2f433384e378"])
 
         # create snapshot with unreferenced package
-        resp = self.post("/api/snapshots", json={
+        resp = self.post_task("/api/snapshots", json={
             "Name": self.random_name(),
             "PackageRefs": ["Pi386 libboost-program-options-dev 1.49.0.1 918d2f433384e378", "Pamd64 no-such-package 1.2 91"]})
-        self.check_equal(resp.status_code, 404)
+        self.check_equal(resp.json()['State'], 3)
 
         # list snapshots
         resp = self.get("/api/snapshots", params={"sort": "time"})
@@ -103,7 +106,7 @@ class SnapshotsAPITestCreateFromRepo(APITest):
         self.check_equal(self.upload("/api/files/" + d,
                          "libboost-program-options-dev_1.49.0.1_i386.deb").status_code, 200)
 
-        self.check_equal(self.post("/api/repos/" + repo_name + "/file/" + d).status_code, 200)
+        self.check_equal(self.post_task("/api/repos/" + repo_name + "/file/" + d).json()['State'], 2)
 
         resp = self.post("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshot_name})
         self.check_equal(resp.status_code, 201)
@@ -136,8 +139,8 @@ class SnapshotsAPITestCreateUpdate(APITest):
         snapshot_desc = {u'Description': u'fun snapshot',
                          u'Name': snapshot_name}
 
-        resp = self.post("/api/snapshots", json=snapshot_desc)
-        self.check_equal(resp.status_code, 201)
+        resp = self.post_task("/api/snapshots", json=snapshot_desc)
+        self.check_equal(resp.json()['State'], 2)
 
         new_snapshot_name = self.random_name()
         resp = self.put("/api/snapshots/" + snapshot_name, json={'Name': new_snapshot_name,
@@ -169,8 +172,8 @@ class SnapshotsAPITestCreateDelete(APITest):
                          u'Name': snapshot_name}
 
         # deleting unreferenced snapshot
-        resp = self.post("/api/snapshots", json=snapshot_desc)
-        self.check_equal(resp.status_code, 201)
+        resp = self.post_task("/api/snapshots", json=snapshot_desc)
+        self.check_equal(resp.json()['State'], 2)
 
         self.check_equal(self.delete("/api/snapshots/" + snapshot_name).status_code, 200)
 
@@ -178,8 +181,12 @@ class SnapshotsAPITestCreateDelete(APITest):
 
         # deleting referenced snapshot
         snap1, snap2 = self.random_name(), self.random_name()
-        self.check_equal(self.post("/api/snapshots", json={"Name": snap1}).status_code, 201)
-        self.check_equal(self.post("/api/snapshots", json={"Name": snap2, "SourceSnapshots": [snap1]}).status_code, 201)
+        self.check_equal(self.post_task("/api/snapshots", json={"Name": snap1}).json()['State'], 2)
+        self.check_equal(
+            self.post_task(
+                "/api/snapshots", json={"Name": snap2, "SourceSnapshots": [snap1]}
+            ).json()['State'], 2
+        )
 
         self.check_equal(self.delete("/api/snapshots/" + snap1).status_code, 409)
         self.check_equal(self.get("/api/snapshots/" + snap1).status_code, 200)
@@ -187,7 +194,7 @@ class SnapshotsAPITestCreateDelete(APITest):
         self.check_equal(self.get("/api/snapshots/" + snap1).status_code, 404)
 
         # deleting published snapshot
-        resp = self.post("/api/publish",
+        resp = self.post_task("/api/publish",
                          json={
                              "SourceKind": "snapshot",
                              "Distribution": "trusty",
@@ -195,7 +202,7 @@ class SnapshotsAPITestCreateDelete(APITest):
                              "Sources": [{"Name": snap2}],
                              "Signing": DefaultSigningOptions,
                          })
-        self.check_equal(resp.status_code, 201)
+        self.check_equal(resp.json()['State'], 2)
 
         self.check_equal(self.delete("/api/snapshots/" + snap2).status_code, 409)
         self.check_equal(self.delete("/api/snapshots/" + snap2, params={"force": "1"}).status_code, 409)
@@ -215,7 +222,7 @@ class SnapshotsAPITestSearch(APITest):
         self.check_equal(self.upload("/api/files/" + d,
                          "libboost-program-options-dev_1.49.0.1_i386.deb").status_code, 200)
 
-        self.check_equal(self.post("/api/repos/" + repo_name + "/file/" + d).status_code, 200)
+        self.check_equal(self.post_task("/api/repos/" + repo_name + "/file/" + d).json()['State'], 2)
 
         resp = self.post("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshot_name})
         self.check_equal(resp.status_code, 201)
@@ -249,13 +256,13 @@ class SnapshotsAPITestDiff(APITest):
         self.check_equal(self.upload("/api/files/" + d,
                          "libboost-program-options-dev_1.49.0.1_i386.deb").status_code, 200)
 
-        self.check_equal(self.post("/api/repos/" + repo_name + "/file/" + d).status_code, 200)
+        self.check_equal(self.post_task("/api/repos/" + repo_name + "/file/" + d).json()['State'], 2)
 
         resp = self.post("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshots[0]})
         self.check_equal(resp.status_code, 201)
 
-        resp = self.post("/api/snapshots", json={'Name': snapshots[1]})
-        self.check_equal(resp.status_code, 201)
+        resp = self.post_task("/api/snapshots", json={'Name': snapshots[1]})
+        self.check_equal(resp.json()['State'], 2)
 
         resp = self.get("/api/snapshots/" + snapshots[0] + "/diff/" + snapshots[1])
         self.check_equal(resp.status_code, 200)
