@@ -278,6 +278,7 @@ func apiMirrorsUpdate(c *gin.Context) {
 		Architectures     []string
 		Components        []string
 		SkipComponentCheck  bool
+		MaxTries            int
 		IgnoreSignatures    bool
 		Keyrings          []string
 		ForceUpdate         bool
@@ -350,7 +351,11 @@ func apiMirrorsUpdate(c *gin.Context) {
 			}
 		}
 
-		err = remote.DownloadPackageIndexes(out, downloader, collectionFactory, b.SkipComponentCheck)
+		if b.MaxTries <= 0 {
+			b.MaxTries = 1
+		}
+
+		err = remote.DownloadPackageIndexes(out, downloader, collectionFactory, b.SkipComponentCheck, b.MaxTries)
 		if err != nil {
 			return fmt.Errorf("unable to update: %s", err)
 		}
@@ -393,7 +398,7 @@ func apiMirrorsUpdate(c *gin.Context) {
 		ch := make(chan error, len(queue))
 		go func() {
 			for _, task := range queue {
-				downloader.DownloadWithChecksum(remote.PackageURL(task.RepoURI).String(), task.DestinationPath, ch, task.Checksums, b.SkipComponentCheck)
+				downloader.DownloadWithChecksum(remote.PackageURL(task.RepoURI).String(), task.DestinationPath, ch, task.Checksums, b.SkipComponentCheck, b.MaxTries)
 			}
 
 			queue = nil
