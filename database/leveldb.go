@@ -165,14 +165,13 @@ func (l *levelDB) DeleteByPrefix(prefix []byte) error {
 	iterator := l.db.NewIterator(nil, nil)
 	defer iterator.Release()
 
+	batch := l.StartBatch()
 	for ok := iterator.Seek(prefix); ok && bytes.HasPrefix(iterator.Key(), prefix); ok = iterator.Next() {
 		key := iterator.Key()
-		if err := l.Delete(key); err != nil {
-			return nil
-		}
+		batch.Delete(key)
 	}
 
-	return nil
+	return l.FinishBatch(batch)
 }
 
 // FetchByPrefix returns all values with keys that start with prefix
