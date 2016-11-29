@@ -170,7 +170,7 @@ func (downloader *downloaderImpl) handleTask(task *downloadTask) {
 		}
 	}
 
-	// still an error after retring, giving up
+	// still an error after retrying, giving up
 	if err != nil {
 		task.result <- err
 		return
