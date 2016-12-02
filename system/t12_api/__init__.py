@@ -10,3 +10,4 @@ from .graph import *
 from .snapshots import *
 from .packages import *
 from .mirrors import *
+from .gpg import *
