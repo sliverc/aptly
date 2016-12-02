@@ -58,9 +58,7 @@ func apiGPGAddKey(c *gin.Context) {
 	}
 
 	cmd := exec.Command("gpg", args...)
-	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
 	if err = cmd.Run(); err != nil {
 		c.Fail(400, err)
 		return
