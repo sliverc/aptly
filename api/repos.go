@@ -59,9 +59,9 @@ func apiReposCreate(c *gin.Context) {
 // PUT /api/repos/:name
 func apiReposEdit(c *gin.Context) {
 	var b struct {
-		Comment             string
-		DefaultDistribution string
-		DefaultComponent    string
+		Comment             *string
+		DefaultDistribution *string
+		DefaultComponent    *string
 	}
 
 	if !c.Bind(&b) {
@@ -77,14 +77,14 @@ func apiReposEdit(c *gin.Context) {
 		return
 	}
 
-	if b.Comment != "" {
-		repo.Comment = b.Comment
+	if b.Comment != nil {
+		repo.Comment = *b.Comment
 	}
-	if b.DefaultDistribution != "" {
-		repo.DefaultDistribution = b.DefaultDistribution
+	if b.DefaultDistribution != nil {
+		repo.DefaultDistribution = *b.DefaultDistribution
 	}
-	if b.DefaultComponent != "" {
-		repo.DefaultComponent = b.DefaultComponent
+	if b.DefaultComponent != nil {
+		repo.DefaultComponent = *b.DefaultComponent
 	}
 
 	err = collection.Update(repo)
