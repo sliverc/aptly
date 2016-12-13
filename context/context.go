@@ -33,7 +33,7 @@ type AptlyContext struct {
 
 	progress          aptly.Progress
 	downloader        aptly.Downloader
-	queue             *task.Queue
+	taskList          *task.List
 	database          database.Storage
 	packagePool       aptly.PackagePool
 	publishedStorages map[string]aptly.PublishedStorage
@@ -222,15 +222,15 @@ func (context *AptlyContext) Downloader() aptly.Downloader {
 	return context.downloader
 }
 
-// Queue returns instance of current task queue
-func (context *AptlyContext) Queue() *task.Queue {
+// TaskList returns instance of current task list
+func (context *AptlyContext) TaskList() *task.List {
 	context.Lock()
 	defer context.Unlock()
 
-	if context.queue == nil {
-		context.queue = task.NewQueue()
+	if context.taskList == nil {
+		context.taskList = task.NewList()
 	}
-	return context.queue
+	return context.taskList
 }
 
 // DBPath builds path to database

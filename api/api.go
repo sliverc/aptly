@@ -59,8 +59,8 @@ func acquireDatabase() {
 }
 
 // Should be called before database access is needed in any api call.
-// Happens per default for each api call but important for queuing
-// of tasks you need to use pushToQueue or accuire manually.
+// Happens per default for each api call. It is important that you run
+// runTaskInBackground to run a task which accquire database.
 // Important do not forget to defer to releaseDatabaseConnection
 func acquireDatabaseConnection() error {
 	if dbRequests == nil {
@@ -80,10 +80,9 @@ func releaseDatabaseConnection() error {
 	return <-dbAcks
 }
 
-// push proc func to queue. Acquires database connection first.
-func pushToQueue(name string, proc func(out *task.Output) error) task.Task {
-
-	return context.Queue().Push(name, func(out *task.Output) error {
+// runs tasks in background. Acquires database connection first.
+func runTaskInBackground(name string, resources []string, proc func(out *task.Output) error) (task.Task, error) {
+	return context.TaskList().RunTaskInBackground(name, resources, func(out *task.Output) error {
 		err := acquireDatabaseConnection()
 
 		if err != nil {
