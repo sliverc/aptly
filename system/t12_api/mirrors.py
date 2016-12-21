@@ -83,8 +83,8 @@ class MirrorsAPITestCreateDelete(APITest):
         resp = self.post("/api/mirrors", json=mirror_desc)
         self.check_equal(resp.status_code, 201)
 
-        resp = self.delete("/api/mirrors/" + mirror_name)
-        self.check_equal(resp.status_code, 200)
+        resp = self.delete_task("/api/mirrors/" + mirror_name)
+        self.check_equal(resp.json()['State'], 2)
 
 
 class MirrorsAPITestCreateList(APITest):
