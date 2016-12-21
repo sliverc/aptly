@@ -142,7 +142,7 @@ func apiMirrorsDrop(c *gin.Context) {
 	resources := []string{string(repo.Key())}
 	taskName := fmt.Sprintf("Delete mirror %s", name)
 	task, err := runTaskInBackground(taskName, resources, func(out *task.Output) error {
-		err = repo.CheckLock()
+		err := repo.CheckLock()
 		if err != nil {
 			return fmt.Errorf("unable to drop: %s", err)
 		}
@@ -343,7 +343,7 @@ func apiMirrorsUpdate(c *gin.Context) {
 	resources := []string{string(remote.Key())}
 	task, err := runTaskInBackground("Update mirror "+b.Name, resources, func(out *task.Output) error {
 		downloader := context.NewDownloader(out)
-		err = remote.Fetch(downloader, verifier)
+		err := remote.Fetch(downloader, verifier)
 		if err != nil {
 			return fmt.Errorf("unable to update: %s", err)
 		}
@@ -399,7 +399,8 @@ func apiMirrorsUpdate(c *gin.Context) {
 		}
 
 		// In separate goroutine (to avoid blocking main), push queue to downloader
-		ch := make(chan error, len(queue))
+		count := len(queue)
+		ch := make(chan error, count)
 		go func() {
 			for _, task := range queue {
 				downloader.DownloadWithChecksum(remote.PackageURL(task.RepoURI).String(), task.DestinationPath, ch, task.Checksums, b.SkipComponentCheck, b.MaxTries)
@@ -410,8 +411,6 @@ func apiMirrorsUpdate(c *gin.Context) {
 
 		// Wait for all downloads to finish
 		var errors []string
-		count := len(queue)
-
 		for count > 0 {
 			select {
 			case err = <-ch:

@@ -60,7 +60,7 @@ func apiSnapshotsCreateFromMirror(c *gin.Context) {
 	resources := []string{string(repo.Key()), "S" + b.Name}
 	taskName := fmt.Sprintf("Create snapshot of mirror %s", name)
 	task, err := runTaskInBackground(taskName, resources, func(out *task.Output) error {
-		err = repo.CheckLock()
+		err := repo.CheckLock()
 		if err != nil {
 			return err
 		}
@@ -133,7 +133,7 @@ func apiSnapshotsCreate(c *gin.Context) {
 			return
 		}
 
-		resources = append(resources, string(sources[1].ResourceKey()))
+		resources = append(resources, string(sources[i].ResourceKey()))
 	}
 
 	task, err := runTaskInBackground("Create snapshot " + b.Name, resources, func(out *task.Output) error {
@@ -141,9 +141,7 @@ func apiSnapshotsCreate(c *gin.Context) {
 
 		// verify package refs and build package list
 		for _, ref := range b.PackageRefs {
-			var p *deb.Package
-
-			p, err = collectionFactory.PackageCollection().ByKey([]byte(ref))
+			p, err := collectionFactory.PackageCollection().ByKey([]byte(ref))
 			if err != nil {
 				if err == database.ErrNotFound {
 					return fmt.Errorf("package %s: %s", ref, err)
@@ -196,7 +194,7 @@ func apiSnapshotsCreateFromRepository(c *gin.Context) {
 	resources := []string{string(repo.Key()), "S" + b.Name}
 	taskName := fmt.Sprintf("Create snapshot of repo %s", name)
 	task, err := runTaskInBackground(taskName, resources, func(out *task.Output) error {
-		err = collection.LoadComplete(repo)
+		err := collection.LoadComplete(repo)
 		if err != nil {
 			return err
 		}
@@ -250,7 +248,7 @@ func apiSnapshotsUpdate(c *gin.Context) {
 	resources := []string{string(snapshot.ResourceKey()), "S" + b.Name}
 	taskName := fmt.Sprintf("Update snapshot %s", name)
 	task, err := runTaskInBackground(taskName, resources, func(out *task.Output) error {
-		_, err = collection.ByName(b.Name)
+		_, err := collection.ByName(b.Name)
 		if err == nil {
 			return fmt.Errorf("unable to rename: snapshot %s already exists", b.Name)
 		}

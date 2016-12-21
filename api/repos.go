@@ -198,7 +198,7 @@ func apiReposPackagesAddDelete(c *gin.Context, taskNamePrefix string, cb func(li
 	}
 
 	resources := []string{string(repo.Key())}
-	task, err:= runTaskInBackground(taskNamePrefix + repo.Name, resources, func(out *task.Output) error {
+	task, err := runTaskInBackground(taskNamePrefix + repo.Name, resources, func(out *task.Output) error {
 		fmt.Fprintln(out, "Loading packages...")
 		list, err := deb.NewPackageListFromRefList(repo.RefList(), collectionFactory.PackageCollection(), nil)
 		if err != nil {
@@ -320,7 +320,7 @@ func apiReposPackageFromDir(c *gin.Context) {
 
 		packageFiles, failedFiles = deb.CollectPackageFiles(sources, reporter)
 
-		list, err = deb.NewPackageListFromRefList(repo.RefList(), collectionFactory.PackageCollection(), nil)
+		list, err := deb.NewPackageListFromRefList(repo.RefList(), collectionFactory.PackageCollection(), nil)
 		if err != nil {
 			return fmt.Errorf("unable to load packages: %s", err)
 		}

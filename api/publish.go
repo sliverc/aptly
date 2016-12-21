@@ -192,7 +192,7 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 			return fmt.Errorf("prefix/distribution already used by another published repo: %s", duplicate)
 		}
 
-		err = published.Publish(context.PackagePool(), context, collectionFactory, signer, out, b.ForceOverwrite)
+		err := published.Publish(context.PackagePool(), context, collectionFactory, signer, out, b.ForceOverwrite)
 		if err != nil {
 			return fmt.Errorf("unable to publish: %s", err)
 		}
@@ -303,7 +303,7 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 	resources = append(resources, string(published.Key()))
 	taskName := fmt.Sprintf("Update published %s (%s): %s", published.SourceKind, strings.Join(updatedComponents, " "), strings.Join(updatedSnapshots, ", "))
 	task, err := runTaskInBackground(taskName, resources, func(out *task.Output) error {
-		err = published.Publish(context.PackagePool(), context, collectionFactory, signer, out, b.ForceOverwrite)
+		err := published.Publish(context.PackagePool(), context, collectionFactory, signer, out, b.ForceOverwrite)
 		if err != nil {
 			return fmt.Errorf("unable to update: %s", err)
 		}
