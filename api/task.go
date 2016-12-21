@@ -20,14 +20,14 @@ func apiTasksClear(c *gin.Context) {
 	c.JSON(200, gin.H{})
 }
 
-// GET /tasks/wait
+// GET /tasks-wait
 func apiTasksWait(c *gin.Context) {
 	list := context.TaskList()
 	list.Wait()
 	c.JSON(200, gin.H{})
 }
 
-// GET /tasks/wait/:id
+// GET /tasks/:id/wait
 func apiTasksWaitForTaskByID(c *gin.Context) {
 	list := context.TaskList()
 	id, err := strconv.ParseInt(c.Params.ByName("id"), 10, 0)
