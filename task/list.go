@@ -106,10 +106,10 @@ func (list *List) RunTaskInBackground(name string, resources []string, process f
 		defer list.Unlock()
 
 		if err != nil {
-			fmt.Fprintf(task.output, "Task failed with error: %v", err)
+			fmt.Fprintf(task.output, "Task failed with error: %v\n", err)
 			task.State = FAILED
 		} else {
-			fmt.Fprintf(task.output, "Task succeeded")
+			fmt.Fprintln(task.output, "Task succeeded")
 			task.State = SUCCEEDED
 		}
 
