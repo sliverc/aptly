@@ -130,7 +130,7 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 				return
 			}
 
-			resources = append(resources, string(snapshot.Key()))
+			resources = append(resources, string(snapshot.ResourceKey()))
 			err = snapshotCollection.LoadComplete(snapshot)
 			if err != nil {
 				c.Fail(500, fmt.Errorf("unable to publish: %s", err))
