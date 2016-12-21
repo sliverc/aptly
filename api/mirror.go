@@ -2,13 +2,13 @@ package api
 
 import (
 	"fmt"
-	"sort"
-	"strings"
 	"github.com/gin-gonic/gin"
 	"github.com/smira/aptly/deb"
-	"github.com/smira/aptly/task"
 	"github.com/smira/aptly/query"
+	"github.com/smira/aptly/task"
 	"github.com/smira/aptly/utils"
+	"sort"
+	"strings"
 )
 
 func getVerifier(ignoreSignatures bool, keyRings []string) (utils.Verifier, error) {
@@ -47,18 +47,18 @@ func apiMirrorsList(c *gin.Context) {
 func apiMirrorsCreate(c *gin.Context) {
 	var err error
 	var b struct {
-		Name                string `binding:"required"`
-		ArchiveURL          string `binding:"required"`
-		Distribution        string
-		Components          []string
-		Architectures       []string
-		DownloadSources     bool
-		DownloadUdebs       bool
-		Filter              string
-		FilterWithDeps      bool
-		SkipComponentCheck  bool
-		IgnoreSignatures    bool
-		Keyrings            []string
+		Name               string `binding:"required"`
+		ArchiveURL         string `binding:"required"`
+		Distribution       string
+		Components         []string
+		Architectures      []string
+		DownloadSources    bool
+		DownloadUdebs      bool
+		Filter             string
+		FilterWithDeps     bool
+		SkipComponentCheck bool
+		IgnoreSignatures   bool
+		Keyrings           []string
 	}
 
 	b.DownloadSources = context.Config().DownloadSourcePackages
@@ -139,28 +139,31 @@ func apiMirrorsDrop(c *gin.Context) {
 		return
 	}
 
-	err = repo.CheckLock()
-	if err != nil {
-		c.Fail(409, fmt.Errorf("unable to drop: %s", err))
-		return
-	}
-
-	if !force {
-		snapshots := snapshotCollection.ByRemoteRepoSource(repo)
-
-		if len(snapshots) > 0 {
-			c.Fail(409, fmt.Errorf("won't delete mirror with snapshots, use 'force=1' to override"))
-			return
+	resources := []string{string(repo.Key())}
+	taskName := fmt.Sprintf("Delete mirror %s", name)
+	task, err := runTaskInBackground(taskName, resources, func(out *task.Output) error {
+		err = repo.CheckLock()
+		if err != nil {
+			return fmt.Errorf("unable to drop: %s", err)
 		}
-	}
 
-	err = mirrorCollection.Drop(repo)
+		if !force {
+			snapshots := snapshotCollection.ByRemoteRepoSource(repo)
+
+			if len(snapshots) > 0 {
+				return fmt.Errorf("won't delete mirror with snapshots, use 'force=1' to override")
+			}
+		}
+
+		return mirrorCollection.Drop(repo)
+	})
+
 	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to drop: %s", err))
+		c.Fail(400, err)
 		return
 	}
 
-	c.JSON(200, gin.H{})
+	c.JSON(202, task)
 }
 
 // GET /api/mirrors/:name
@@ -264,25 +267,25 @@ func apiMirrorsPackages(c *gin.Context) {
 // PUT /api/mirrors/:name
 func apiMirrorsUpdate(c *gin.Context) {
 	var (
-		err      error
-		remote  *deb.RemoteRepo
+		err    error
+		remote *deb.RemoteRepo
 	)
 
 	var b struct {
-		Name                string
-		Filter              string
-		FilterWithDeps      bool
-		ForceComponents     bool
-		DownloadSources     bool
-		DownloadUdebs       bool
-		Architectures     []string
-		Components        []string
-		SkipComponentCheck  bool
-		MaxTries            int
-		IgnoreSignatures    bool
-		Keyrings          []string
-		ForceUpdate         bool
-		DownloadLimit       int64
+		Name               string
+		Filter             string
+		FilterWithDeps     bool
+		ForceComponents    bool
+		DownloadSources    bool
+		DownloadUdebs      bool
+		Architectures      []string
+		Components         []string
+		SkipComponentCheck bool
+		MaxTries           int
+		IgnoreSignatures   bool
+		Keyrings           []string
+		ForceUpdate        bool
+		DownloadLimit      int64
 	}
 
 	collectionFactory := context.NewCollectionFactory()
@@ -337,7 +340,8 @@ func apiMirrorsUpdate(c *gin.Context) {
 		return
 	}
 
-	task := pushToQueue("Update mirror " + b.Name, func(out *task.Output) error {
+	resources := []string{string(remote.Key())}
+	task, err := runTaskInBackground("Update mirror "+b.Name, resources, func(out *task.Output) error {
 		downloader := context.NewDownloader(out)
 		err = remote.Fetch(downloader, verifier)
 		if err != nil {
@@ -421,6 +425,11 @@ func apiMirrorsUpdate(c *gin.Context) {
 		remote.FinalizeDownload()
 		return nil
 	})
+
+	if err != nil {
+		c.Fail(400, err)
+		return
+	}
 
 	c.JSON(202, task)
 }
