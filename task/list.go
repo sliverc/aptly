@@ -100,23 +100,31 @@ func (list *List) RunTaskInBackground(name string, resources []string, process f
 	wgTask.Add(1)
 
 	go func() {
+
+		list.Lock()
+		{
+			task.State = RUNNING
+		}
+		list.Unlock()
+
 		err := process(task.output)
 
 		list.Lock()
-		defer list.Unlock()
+		{
+			if err != nil {
+				fmt.Fprintf(task.output, "Task failed with error: %v\n", err)
+				task.State = FAILED
+			} else {
+				fmt.Fprintln(task.output, "Task succeeded")
+				task.State = SUCCEEDED
+			}
 
-		if err != nil {
-			fmt.Fprintf(task.output, "Task failed with error: %v\n", err)
-			task.State = FAILED
-		} else {
-			fmt.Fprintln(task.output, "Task succeeded")
-			task.State = SUCCEEDED
+			list.usedResources.Remove(resources)
+
+			wgTask.Done()
+			list.wg.Done()
 		}
-
-		list.usedResources.Remove(resources)
-
-		wgTask.Done()
-		list.wg.Done()
+		list.Unlock()
 	}()
 
 	return *task, nil
@@ -145,12 +153,12 @@ func (list *List) Wait() {
 // WaitForTaskByID waits for task with given id to be processed
 func (list *List) WaitForTaskByID(ID int) error {
 	list.Lock()
-	wg, ok := list.wgTasks[ID]
+	wgTask, ok := list.wgTasks[ID]
 	list.Unlock()
 	if !ok {
 		return fmt.Errorf("Could not find task with id %v", ID)
 	}
 
-	wg.Wait()
+	wgTask.Wait()
 	return nil
 }
