@@ -12,6 +12,8 @@ import (
 type List struct {
 	*sync.Mutex
 	tasks []*Task
+	wgTasks map[int]*sync.WaitGroup
+	wg *sync.WaitGroup
 	// resources currently used by running tasks
 	usedResources *ResourcesSet
 	idCounter int
@@ -22,6 +24,8 @@ func NewList() *List {
 	list := &List{
 		Mutex: &sync.Mutex{},
 		tasks: make([]*Task, 0),
+		wgTasks: make(map[int]*sync.WaitGroup),
+		wg: &sync.WaitGroup{},
 		usedResources: NewResourcesSet(),
 	}
 	return list
@@ -79,6 +83,7 @@ func (list *List) RunTaskInBackground(name string, resources []string, process f
 
 	list.idCounter++
 	list.usedResources.Add(resources)
+	wgTask := &sync.WaitGroup{}
 	task := &Task{
 		output:  &Output{mu: &sync.Mutex{}, output: &bytes.Buffer{}},
 		process: process,
@@ -86,8 +91,13 @@ func (list *List) RunTaskInBackground(name string, resources []string, process f
 		ID:      list.idCounter,
 		State:   IDLE,
 	}
+
 	list.tasks = append(list.tasks, task)
+	list.wgTasks[task.ID] = wgTask
 	list.usedResources.Add(resources)
+
+	list.wg.Add(1)
+	wgTask.Add(1)
 
 	go func() {
 		err := process(task.output)
@@ -104,6 +114,9 @@ func (list *List) RunTaskInBackground(name string, resources []string, process f
 		}
 
 		list.usedResources.Remove(resources)
+
+		wgTask.Done()
+		list.wg.Done()
 	}()
 
 	return *task, nil
@@ -122,4 +135,20 @@ func (list *List) Clear() {
 	list.tasks = tasks
 
 	list.Unlock()
+}
+
+// Wait waits till all tasks are processed
+func (list *List) Wait() {
+	list.wg.Wait()
+}
+
+// WaitForTaskByID waits for task with given id to be processed
+func (list *List) WaitForTaskByID(ID int) error {
+	wg, ok := list.wgTasks[ID]
+	if !ok {
+		return fmt.Errorf("Could not find task with id %v", ID)
+	}
+
+	wg.Wait()
+	return nil
 }
