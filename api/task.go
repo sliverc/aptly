@@ -9,27 +9,27 @@ import (
 
 // GET /tasks
 func apiTasksList(c *gin.Context) {
-	queue := context.Queue()
-	c.JSON(200, queue.GetTasks())
+	list := context.TaskList()
+	c.JSON(200, list.GetTasks())
 }
 
 // POST /tasks/clear
 func apiTasksClear(c *gin.Context) {
-	queue := context.Queue()
-	queue.Clear()
+	list := context.TaskList()
+	list.Clear()
 	c.JSON(200, gin.H{})
 }
 
 // GET /tasks/wait
 func apiTasksWait(c *gin.Context) {
-	queue := context.Queue()
-	queue.Wait()
+	list := context.TaskList()
+	list.Wait()
 	c.JSON(200, gin.H{})
 }
 
 // GET /tasks/:id
 func apiTasksShow(c *gin.Context) {
-	q := context.Queue()
+	list := context.TaskList()
 	id, err := strconv.ParseInt(c.Params.ByName("id"), 10, 0)
 	if err != nil {
 		c.Fail(500, err)
@@ -37,7 +37,7 @@ func apiTasksShow(c *gin.Context) {
 	}
 
 	var task task.Task
-	task, err = q.GetTaskByID(int(id))
+	task, err = list.GetTaskByID(int(id))
 	if err != nil {
 		c.Fail(500, err)
 		return
@@ -48,7 +48,7 @@ func apiTasksShow(c *gin.Context) {
 
 // GET /tasks/:id/output
 func apiTasksOutputShow(c *gin.Context) {
-	q := context.Queue()
+	list := context.TaskList()
 	id, err := strconv.ParseInt(c.Params.ByName("id"), 10, 0)
 	if err != nil {
 		c.Fail(500, err)
@@ -56,7 +56,7 @@ func apiTasksOutputShow(c *gin.Context) {
 	}
 
 	var output string
-	output, err = q.GetTaskOutputByID(int(id))
+	output, err = list.GetTaskOutputByID(int(id))
 	if err != nil {
 		c.Fail(500, err)
 		return
