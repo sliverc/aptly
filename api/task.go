@@ -27,6 +27,23 @@ func apiTasksWait(c *gin.Context) {
 	c.JSON(200, gin.H{})
 }
 
+// GET /tasks/wait/:id
+func apiTasksWaitForTaskByID(c *gin.Context) {
+	list := context.TaskList()
+	id, err := strconv.ParseInt(c.Params.ByName("id"), 10, 0)
+	if err != nil {
+		c.Fail(500, err)
+		return
+	}
+
+	if err = list.WaitForTaskByID(int(id)); err != nil {
+		c.Fail(400, err)
+		return
+	}
+
+	c.JSON(200, gin.H{})
+}
+
 // GET /tasks/:id
 func apiTasksShow(c *gin.Context) {
 	list := context.TaskList()
