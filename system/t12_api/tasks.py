@@ -18,6 +18,10 @@ class TaskAPITestParallelTasks(APITest):
         resp = self.put("/api/mirrors/" + mirror_name, json=mirror_desc)
         self.check_equal(resp.status_code, 202)
 
+        # check that two mirror updates cannot run at the same time
+        resp2 = self.put("/api/mirrors/" + mirror_name, json=mirror_desc)
+        self.check_equal(resp2.status_code, 412)
+
         return resp.json()['ID'], mirror_name
 
     def _create_repo(self):
