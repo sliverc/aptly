@@ -59,7 +59,7 @@ func apiSnapshotsCreateFromMirror(c *gin.Context) {
 	// including snapshot resource key
 	resources := []string{string(repo.Key()), "S" + b.Name}
 	taskName := fmt.Sprintf("Create snapshot of mirror %s", name)
-	task, err := runTaskInBackground(taskName, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output) error {
 		err := repo.CheckLock()
 		if err != nil {
 			return err
@@ -82,8 +82,9 @@ func apiSnapshotsCreateFromMirror(c *gin.Context) {
 		return snapshotCollection.Add(snapshot)
 	})
 
-	if err != nil {
-		c.Fail(400, err)
+	if conflictErr != nil {
+		c.Error(conflictErr, conflictErr.Tasks)
+		c.AbortWithStatus(412)
 		return
 	}
 
@@ -136,7 +137,7 @@ func apiSnapshotsCreate(c *gin.Context) {
 		resources = append(resources, string(sources[i].ResourceKey()))
 	}
 
-	task, err := runTaskInBackground("Create snapshot " + b.Name, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground("Create snapshot " + b.Name, resources, func(out *task.Output) error {
 		list := deb.NewPackageList()
 
 		// verify package refs and build package list
@@ -158,6 +159,12 @@ func apiSnapshotsCreate(c *gin.Context) {
 
 		return snapshotCollection.Add(snapshot)
 	})
+
+	if conflictErr != nil {
+		c.Error(conflictErr, conflictErr.Tasks)
+		c.AbortWithStatus(412)
+		return
+	}
 
 	c.JSON(202, task)
 }
@@ -193,7 +200,7 @@ func apiSnapshotsCreateFromRepository(c *gin.Context) {
 	// including snapshot resource key
 	resources := []string{string(repo.Key()), "S" + b.Name}
 	taskName := fmt.Sprintf("Create snapshot of repo %s", name)
-	task, err := runTaskInBackground(taskName, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output) error {
 		err := collection.LoadComplete(repo)
 		if err != nil {
 			return err
@@ -211,8 +218,9 @@ func apiSnapshotsCreateFromRepository(c *gin.Context) {
 		return snapshotCollection.Add(snapshot)
 	})
 
-	if err != nil {
-		c.Fail(400, err)
+	if conflictErr != nil {
+		c.Error(conflictErr, conflictErr.Tasks)
+		c.AbortWithStatus(412)
 		return
 	}
 
@@ -247,7 +255,7 @@ func apiSnapshotsUpdate(c *gin.Context) {
 
 	resources := []string{string(snapshot.ResourceKey()), "S" + b.Name}
 	taskName := fmt.Sprintf("Update snapshot %s", name)
-	task, err := runTaskInBackground(taskName, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output) error {
 		_, err := collection.ByName(b.Name)
 		if err == nil {
 			return fmt.Errorf("unable to rename: snapshot %s already exists", b.Name)
@@ -265,8 +273,9 @@ func apiSnapshotsUpdate(c *gin.Context) {
 	})
 
 
-	if err != nil {
-		c.Fail(400, err)
+	if conflictErr != nil {
+		c.Error(conflictErr, conflictErr.Tasks)
+		c.AbortWithStatus(412)
 		return
 	}
 
@@ -310,7 +319,7 @@ func apiSnapshotsDrop(c *gin.Context) {
 
 	resources := []string{string(snapshot.ResourceKey())}
 	taskName := fmt.Sprintf("Delete snapshot %s", name)
-	task, err := runTaskInBackground(taskName, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output) error {
 		published := publishedCollection.BySnapshot(snapshot)
 
 		if len(published) > 0 {
@@ -327,8 +336,9 @@ func apiSnapshotsDrop(c *gin.Context) {
 		return snapshotCollection.Drop(snapshot)
 	})
 
-	if err != nil {
-		c.Fail(400, err)
+	if conflictErr != nil {
+		c.Error(conflictErr, conflictErr.Tasks)
+		c.AbortWithStatus(412)
 		return
 	}
 

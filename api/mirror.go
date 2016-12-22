@@ -141,7 +141,7 @@ func apiMirrorsDrop(c *gin.Context) {
 
 	resources := []string{string(repo.Key())}
 	taskName := fmt.Sprintf("Delete mirror %s", name)
-	task, err := runTaskInBackground(taskName, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output) error {
 		err := repo.CheckLock()
 		if err != nil {
 			return fmt.Errorf("unable to drop: %s", err)
@@ -158,8 +158,9 @@ func apiMirrorsDrop(c *gin.Context) {
 		return mirrorCollection.Drop(repo)
 	})
 
-	if err != nil {
-		c.Fail(400, err)
+	if conflictErr != nil {
+		c.Error(conflictErr, conflictErr.Tasks)
+		c.AbortWithStatus(412)
 		return
 	}
 
@@ -341,7 +342,7 @@ func apiMirrorsUpdate(c *gin.Context) {
 	}
 
 	resources := []string{string(remote.Key())}
-	task, err := runTaskInBackground("Update mirror "+b.Name, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground("Update mirror "+b.Name, resources, func(out *task.Output) error {
 		downloader := context.NewDownloader(out)
 		err := remote.Fetch(downloader, verifier)
 		if err != nil {
@@ -425,8 +426,9 @@ func apiMirrorsUpdate(c *gin.Context) {
 		return nil
 	})
 
-	if err != nil {
-		c.Fail(400, err)
+	if conflictErr != nil {
+		c.Error(conflictErr, conflictErr.Tasks)
+		c.AbortWithStatus(412)
 		return
 	}
 

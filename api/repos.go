@@ -128,7 +128,7 @@ func apiReposDrop(c *gin.Context) {
 
 	resources := []string{string(repo.Key())}
 	taskName := fmt.Sprintf("Delete repo %s", name)
-	task, err := runTaskInBackground(taskName, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output) error {
 		published := publishedCollection.ByLocalRepo(repo)
 		if len(published) > 0 {
 			return fmt.Errorf("unable to drop, local repo is published")
@@ -144,8 +144,9 @@ func apiReposDrop(c *gin.Context) {
 		return collection.Drop(repo)
 	})
 
-	if err != nil {
-		c.Fail(400, err)
+	if conflictErr != nil {
+		c.Error(conflictErr, conflictErr.Tasks)
+		c.AbortWithStatus(412)
 		return
 	}
 
@@ -198,7 +199,7 @@ func apiReposPackagesAddDelete(c *gin.Context, taskNamePrefix string, cb func(li
 	}
 
 	resources := []string{string(repo.Key())}
-	task, err := runTaskInBackground(taskNamePrefix + repo.Name, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground(taskNamePrefix + repo.Name, resources, func(out *task.Output) error {
 		fmt.Fprintln(out, "Loading packages...")
 		list, err := deb.NewPackageListFromRefList(repo.RefList(), collectionFactory.PackageCollection(), nil)
 		if err != nil {
@@ -228,8 +229,9 @@ func apiReposPackagesAddDelete(c *gin.Context, taskNamePrefix string, cb func(li
 		return collectionFactory.LocalRepoCollection().Update(repo)
 	})
 
-	if err != nil {
-		c.Fail(400, err)
+	if conflictErr != nil {
+		c.Error(conflictErr, conflictErr.Tasks)
+		c.AbortWithStatus(412)
 		return
 	}
 
@@ -297,7 +299,7 @@ func apiReposPackageFromDir(c *gin.Context) {
 	}
 
 	resources := []string{string(repo.Key())}
-	task, err := runTaskInBackground(taskName, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output) error {
 		verifier := &utils.GpgVerifier{}
 
 		var (
@@ -374,8 +376,9 @@ func apiReposPackageFromDir(c *gin.Context) {
 		return nil
 	})
 
-	if err != nil {
-		c.Fail(400, err)
+	if conflictErr != nil {
+		c.Error(conflictErr, conflictErr.Tasks)
+		c.AbortWithStatus(412)
 		return
 	}
 
