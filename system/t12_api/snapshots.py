@@ -204,8 +204,8 @@ class SnapshotsAPITestCreateDelete(APITest):
                          })
         self.check_equal(resp.json()['State'], 2)
 
-        self.check_equal(self.delete("/api/snapshots/" + snap2).status_code, 409)
-        self.check_equal(self.delete("/api/snapshots/" + snap2, params={"force": "1"}).status_code, 409)
+        self.check_equal(self.delete_task("/api/snapshots/" + snap2).json()['State'], 3)
+        self.check_equal(self.delete_task("/api/snapshots/" + snap2, params={"force": "1"}).json()['State'], 3)
 
 
 class SnapshotsAPITestSearch(APITest):
