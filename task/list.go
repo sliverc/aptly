@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"sync"
-	"errors"
 )
 
 // List is handling list of processes and makes sure
@@ -72,17 +71,21 @@ func (list *List) GetTaskOutputByID(ID int) (string, error) {
 
 // RunTaskInBackground creates task and runs it in background. It won't be run and an error
 // returned if there is a running tasks which is using any needed resources already.
-func (list *List) RunTaskInBackground(name string, resources []string, process func(out *Output) error) (Task, error) {
+func (list *List) RunTaskInBackground(name string, resources []string, process func(out *Output) error) (Task, *ResourceConflictError) {
 
 	list.Lock()
 	defer list.Unlock()
 
-	if list.usedResources.ContainsAny(resources) {
-		return Task{}, errors.New("Other running task already uses needed resources. Aborting...")
+	tasks := list.usedResources.UsedBy(resources)
+	if len(tasks) > 0 {
+		conflictError := &ResourceConflictError{
+			Tasks: tasks,
+			Message: "Needed resources are used by other tasks.",
+		}
+		return Task{}, conflictError
 	}
 
 	list.idCounter++
-	list.usedResources.Add(resources)
 	wgTask := &sync.WaitGroup{}
 	task := &Task{
 		output:  &Output{mu: &sync.Mutex{}, output: &bytes.Buffer{}},
@@ -94,7 +97,7 @@ func (list *List) RunTaskInBackground(name string, resources []string, process f
 
 	list.tasks = append(list.tasks, task)
 	list.wgTasks[task.ID] = wgTask
-	list.usedResources.Add(resources)
+	list.usedResources.MarkInUse(resources, task)
 
 	list.wg.Add(1)
 	wgTask.Add(1)
@@ -119,7 +122,7 @@ func (list *List) RunTaskInBackground(name string, resources []string, process f
 				task.State = SUCCEEDED
 			}
 
-			list.usedResources.Remove(resources)
+			list.usedResources.Free(resources)
 
 			wgTask.Done()
 			list.wg.Done()
