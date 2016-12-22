@@ -73,6 +73,7 @@ class TaskAPITestParallelTasks(APITest):
         return resp.json()['ID']
 
     def check(self):
+        publish_task_ids = []
         mirror_task_list = []
         for mirror_dist in ['wheezy', 'trusty']:
             mirror_task_id, mirror_name = self._create_mirror(mirror_dist)
@@ -83,18 +84,18 @@ class TaskAPITestParallelTasks(APITest):
         repo_snap_task_id = self._snapshot('repos', repo_name)
 
         self._wait_for_task(repo_snap_task_id)
-        self._publish('snapshot', repo_name)
+        publish_task_ids.append(self._publish('snapshot', repo_name))
 
         for mirror_task_id, mirror_name in mirror_task_list:
             self._wait_for_task(mirror_task_id)
             mirror_snap_task_id = self._snapshot('mirrors', mirror_name)
 
             self._wait_for_task(mirror_snap_task_id)
-            self._publish('snapshot', mirror_name)
+            publish_task_ids.append(self._publish('snapshot', mirror_name))
 
         self._wait_for_all_tasks()
 
-        resp = self.get("/api/tasks")
-        self.check_equal(resp.status_code, 200)
-        for task in resp.json():
-            self.check_equal(task['State'], 2)
+        for publish_task_id in publish_task_ids:
+            resp = self.get("/api/tasks/%d" % publish_task_id)
+            self.check_equal(resp.status_code, 200)
+            self.check_equal(resp.json()['State'], 2)
