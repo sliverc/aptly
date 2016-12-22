@@ -151,14 +151,14 @@ func (list *List) Wait() {
 }
 
 // WaitForTaskByID waits for task with given id to be processed
-func (list *List) WaitForTaskByID(ID int) error {
+func (list *List) WaitForTaskByID(ID int) (Task, error) {
 	list.Lock()
 	wgTask, ok := list.wgTasks[ID]
 	list.Unlock()
 	if !ok {
-		return fmt.Errorf("Could not find task with id %v", ID)
+		return Task{}, fmt.Errorf("Could not find task with id %v", ID)
 	}
 
 	wgTask.Wait()
-	return nil
+	return list.GetTaskByID(ID)
 }

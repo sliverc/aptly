@@ -36,12 +36,13 @@ func apiTasksWaitForTaskByID(c *gin.Context) {
 		return
 	}
 
-	if err = list.WaitForTaskByID(int(id)); err != nil {
+	task, err := list.WaitForTaskByID(int(id))
+	if err != nil {
 		c.Fail(400, err)
 		return
 	}
 
-	c.JSON(200, gin.H{})
+	c.JSON(200, task)
 }
 
 // GET /tasks/:id
