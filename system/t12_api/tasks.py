@@ -75,7 +75,7 @@ class TaskAPITestParallelTasks(APITest):
     def check(self):
         publish_task_ids = []
         mirror_task_list = []
-        for mirror_dist in ['wheezy', 'trusty']:
+        for mirror_dist in ['squeeze', 'lucid']:
             mirror_task_id, mirror_name = self._create_mirror(mirror_dist)
             mirror_task_list.append((mirror_task_id, mirror_name))
         repo_task_id, repo_name = self._create_repo()
