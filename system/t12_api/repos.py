@@ -40,7 +40,7 @@ class ReposAPITestCreateIndexDelete(APITest):
         names = [repo["Name"] for repo in repos]
         assert repo_name in names
 
-        self.check_equal(self.delete("/api/repos/" + repo_name).status_code, 200)
+        self.check_equal(self.delete_task("/api/repos/" + repo_name).json()['State'], 2)
         self.check_equal(self.delete("/api/repos/" + repo_name).status_code, 404)
 
         self.check_equal(self.get("/api/repos/" + repo_name).status_code, 404)
@@ -62,7 +62,7 @@ class ReposAPITestCreateIndexDelete(APITest):
         resp = self.post_task("/api/repos/" + repo_name + "/file/" + d)
         self.check_equal(resp.json()['State'], 2)
 
-        self.check_equal(self.post("/api/repos/" + repo_name + "/snapshots", json={"Name": repo_name}).status_code, 201)
+        self.check_equal(self.post_task("/api/repos/" + repo_name + "/snapshots", json={"Name": repo_name}).json()['State'], 2)
 
         self.check_equal(self.post_task("/api/publish",
                          json={
@@ -72,13 +72,13 @@ class ReposAPITestCreateIndexDelete(APITest):
                          }).json()['State'], 2)
 
         # repo is not deletable while it is published
-        self.check_equal(self.delete("/api/repos/" + repo_name).status_code, 409)
-        self.check_equal(self.delete("/api/repos/" + repo_name, params={"force": "1"}).status_code, 409)
+        self.check_equal(self.delete_task("/api/repos/" + repo_name).json()['State'], 3)
+        self.check_equal(self.delete_task("/api/repos/" + repo_name, params={"force": "1"}).json()['State'], 3)
 
         # drop published
         self.check_equal(self.delete_task("/api/publish//" + distribution).json()['State'], 2)
-        self.check_equal(self.delete("/api/repos/" + repo_name).status_code, 409)
-        self.check_equal(self.delete("/api/repos/" + repo_name, params={"force": "1"}).status_code, 200)
+        self.check_equal(self.delete_task("/api/repos/" + repo_name).json()['State'], 3)
+        self.check_equal(self.delete_task("/api/repos/" + repo_name, params={"force": "1"}).json()['State'], 2)
         self.check_equal(self.get("/api/repos/" + repo_name).status_code, 404)
 
 

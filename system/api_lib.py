@@ -52,8 +52,9 @@ class APITest(BaseTest):
         if resp.status_code != 202:
             return resp
 
-        self.get("/api/tasks-wait")
         _id = resp.json()['ID']
+        resp = self.get("/api/tasks/" + str(_id) + "/wait")
+        self.check_equal(resp.status_code, 200)
 
         return self.get("/api/tasks/" + str(_id))
 
@@ -70,8 +71,9 @@ class APITest(BaseTest):
         if resp.status_code != 202:
             return resp
 
-        self.get("/api/tasks-wait")
         _id = resp.json()['ID']
+        resp = self.get("/api/tasks/" + str(_id) + "/wait")
+        self.check_equal(resp.status_code, 200)
 
         return self.get("/api/tasks/" + str(_id))
 
@@ -88,18 +90,9 @@ class APITest(BaseTest):
         if resp.status_code != 202:
             return resp
 
-        self.get("/api/tasks-wait")
         _id = resp.json()['ID']
-
-        return self.get("/api/tasks/" + str(_id))
-
-    def delete_task(self, uri, *args, **kwargs):
-        resp = self.delete(uri, *args, **kwargs)
-        if resp.status_code != 202:
-            return resp
-
-        self.get("/api/tasks-wait")
-        _id = resp.json()['ID']
+        resp = self.get("/api/tasks/" + str(_id) + "/wait")
+        self.check_equal(resp.status_code, 200)
 
         return self.get("/api/tasks/" + str(_id))
 

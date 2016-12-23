@@ -106,8 +106,8 @@ class PublishSnapshotAPITest(APITest):
         snapshot_name = self.random_name()
         self.check_equal(self.post("/api/repos", json={"Name": repo_name}).status_code, 201)
 
-        resp = self.post("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshot_name})
-        self.check_equal(resp.status_code, 400)
+        resp = self.post_task("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshot_name})
+        self.check_equal(resp.json()['State'], 3)
 
         d = self.random_name()
         self.check_equal(self.upload("/api/files/" + d,
@@ -115,7 +115,7 @@ class PublishSnapshotAPITest(APITest):
 
         self.check_equal(self.post_task("/api/repos/" + repo_name + "/file/" + d).json()['State'], 2)
 
-        self.check_equal(self.post("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshot_name}).status_code, 201)
+        self.check_equal(self.post_task("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshot_name}).json()['State'], 2)
 
         prefix = self.random_name()
         resp = self.post_task("/api/publish/" + prefix,
@@ -230,7 +230,7 @@ class PublishSwitchAPITestRepo(APITest):
         self.check_equal(self.post_task("/api/repos/" + repo_name + "/file/" + d).json()['State'], 2)
 
         snapshot1_name = self.random_name()
-        self.check_equal(self.post("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshot1_name}).status_code, 201)
+        self.check_equal(self.post_task("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshot1_name}).json()['State'], 2)
 
         prefix = self.random_name()
         resp = self.post_task("/api/publish/" + prefix,
@@ -268,7 +268,7 @@ class PublishSwitchAPITestRepo(APITest):
                          json={"PackageRefs": ['Psource pyspi 0.6.1-1.4 f8f1daa806004e89']}).json()['State'], 2)
 
         snapshot2_name = self.random_name()
-        self.check_equal(self.post("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshot2_name}).status_code, 201)
+        self.check_equal(self.post_task("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshot2_name}).json()['State'], 2)
 
         resp = self.put_task("/api/publish/" + prefix + "/wheezy",
                         json={

@@ -113,39 +113,44 @@ func apiReposShow(c *gin.Context) {
 // DELETE /api/repos/:name
 func apiReposDrop(c *gin.Context) {
 	force := c.Request.URL.Query().Get("force") == "1"
+	name := c.Params.ByName("name")
 
 	collectionFactory := context.NewCollectionFactory()
 	collection := collectionFactory.LocalRepoCollection()
 	snapshotCollection := collectionFactory.SnapshotCollection()
 	publishedCollection := collectionFactory.PublishedRepoCollection()
 
-	repo, err := collection.ByName(c.Params.ByName("name"))
+	repo, err := collection.ByName(name)
 	if err != nil {
 		c.Fail(404, err)
 		return
 	}
 
-	published := publishedCollection.ByLocalRepo(repo)
-	if len(published) > 0 {
-		c.Fail(409, fmt.Errorf("unable to drop, local repo is published"))
-		return
-	}
-
-	if !force {
-		snapshots := snapshotCollection.ByLocalRepoSource(repo)
-		if len(snapshots) > 0 {
-			c.Fail(409, fmt.Errorf("unable to drop, local repo has snapshots, use ?force=1 to override"))
-			return
+	resources := []string{string(repo.Key())}
+	taskName := fmt.Sprintf("Delete repo %s", name)
+	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output) error {
+		published := publishedCollection.ByLocalRepo(repo)
+		if len(published) > 0 {
+			return fmt.Errorf("unable to drop, local repo is published")
 		}
-	}
 
-	err = collection.Drop(repo)
-	if err != nil {
-		c.Fail(500, err)
+		if !force {
+			snapshots := snapshotCollection.ByLocalRepoSource(repo)
+			if len(snapshots) > 0 {
+				return fmt.Errorf("unable to drop, local repo has snapshots, use ?force=1 to override")
+			}
+		}
+
+		return collection.Drop(repo)
+	})
+
+	if conflictErr != nil {
+		c.Error(conflictErr, conflictErr.Tasks)
+		c.AbortWithStatus(412)
 		return
 	}
 
-	c.JSON(200, gin.H{})
+	c.JSON(202, task)
 }
 
 // GET /api/repos/:name/packages
@@ -193,7 +198,8 @@ func apiReposPackagesAddDelete(c *gin.Context, taskNamePrefix string, cb func(li
 		return
 	}
 
-	task := pushToQueue(taskNamePrefix + repo.Name, func(out *task.Output) error {
+	resources := []string{string(repo.Key())}
+	task, conflictErr := runTaskInBackground(taskNamePrefix + repo.Name, resources, func(out *task.Output) error {
 		fmt.Fprintln(out, "Loading packages...")
 		list, err := deb.NewPackageListFromRefList(repo.RefList(), collectionFactory.PackageCollection(), nil)
 		if err != nil {
@@ -222,6 +228,12 @@ func apiReposPackagesAddDelete(c *gin.Context, taskNamePrefix string, cb func(li
 
 		return collectionFactory.LocalRepoCollection().Update(repo)
 	})
+
+	if conflictErr != nil {
+		c.Error(conflictErr, conflictErr.Tasks)
+		c.AbortWithStatus(412)
+		return
+	}
 
 	c.JSON(202, task)
 }
@@ -285,7 +297,9 @@ func apiReposPackageFromDir(c *gin.Context) {
 	if fileParam != "" {
 		taskName = fmt.Sprintf("Add package %s from dir %s to repo %s", fileParam, dirParam, name)
 	}
-	task := pushToQueue(taskName, func(out *task.Output) error {
+
+	resources := []string{string(repo.Key())}
+	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output) error {
 		verifier := &utils.GpgVerifier{}
 
 		var (
@@ -308,7 +322,7 @@ func apiReposPackageFromDir(c *gin.Context) {
 
 		packageFiles, failedFiles = deb.CollectPackageFiles(sources, reporter)
 
-		list, err = deb.NewPackageListFromRefList(repo.RefList(), collectionFactory.PackageCollection(), nil)
+		list, err := deb.NewPackageListFromRefList(repo.RefList(), collectionFactory.PackageCollection(), nil)
 		if err != nil {
 			return fmt.Errorf("unable to load packages: %s", err)
 		}
@@ -361,6 +375,12 @@ func apiReposPackageFromDir(c *gin.Context) {
 
 		return nil
 	})
+
+	if conflictErr != nil {
+		c.Error(conflictErr, conflictErr.Tasks)
+		c.AbortWithStatus(412)
+		return
+	}
 
 	c.JSON(202, task)
 }
