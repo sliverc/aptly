@@ -200,7 +200,7 @@ func apiReposPackagesAddDelete(c *gin.Context, taskNamePrefix string, cb func(li
 
 	resources := []string{string(repo.Key())}
 	task, conflictErr := runTaskInBackground(taskNamePrefix + repo.Name, resources, func(out *task.Output) error {
-		fmt.Fprintln(out, "Loading packages...")
+		out.Print("Loading packages...\n")
 		list, err := deb.NewPackageListFromRefList(repo.RefList(), collectionFactory.PackageCollection(), nil)
 		if err != nil {
 			return err
@@ -241,7 +241,7 @@ func apiReposPackagesAddDelete(c *gin.Context, taskNamePrefix string, cb func(li
 // POST /repos/:name/packages
 func apiReposPackagesAdd(c *gin.Context) {
 	apiReposPackagesAddDelete(c, "Add packages to repo ", func(list *deb.PackageList, p *deb.Package, out *task.Output) error {
-		fmt.Fprintf(out, "Adding package %s", p.Name)
+		out.Printf("Adding package %s\n", p.Name)
 		return list.Add(p)
 	})
 }
@@ -249,7 +249,7 @@ func apiReposPackagesAdd(c *gin.Context) {
 // DELETE /repos/:name/packages
 func apiReposPackagesDelete(c *gin.Context) {
 	apiReposPackagesAddDelete(c, "Delete packages from repo ", func(list *deb.PackageList, p *deb.Package, out *task.Output) error {
-		fmt.Fprintf(out, "Removing package %s", p.Name)
+		out.Printf("Removing package %s\n", p.Name)
 		list.Remove(p)
 		return nil
 	})
@@ -361,16 +361,16 @@ func apiReposPackageFromDir(c *gin.Context) {
 		}
 
 		if len(reporter.AddedLines) > 0 {
-			fmt.Fprintf(out, "Added: %s", strings.Join(reporter.AddedLines, ", "))
+			out.Printf("Added: %s\n", strings.Join(reporter.AddedLines, ", "))
 		}
 		if len(reporter.RemovedLines) > 0 {
-			fmt.Fprintf(out, "Removed: %s", strings.Join(reporter.RemovedLines, ", "))
+			out.Printf("Removed: %s\n", strings.Join(reporter.RemovedLines, ", "))
 		}
 		if len(reporter.Warnings) > 0 {
-			fmt.Fprintf(out, "Warnings: %s", strings.Join(reporter.Warnings, ", "))
+			out.Printf("Warnings: %s\n", strings.Join(reporter.Warnings, ", "))
 		}
 		if len(failedFiles) > 0 {
-			fmt.Fprintf(out, "Failed files: %s", strings.Join(failedFiles, ", "))
+			out.Printf("Failed files: %s\n", strings.Join(failedFiles, ", "))
 		}
 
 		return nil
