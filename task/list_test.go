@@ -15,7 +15,7 @@ func (s *ListSuite) TestList(c *check.C) {
 	list := NewList()
 	c.Assert(len(list.GetTasks()), check.Equals, 0)
 
-	task, err := list.RunTaskInBackground("Successful task", nil, func(out *Output) error {
+	task, err := list.RunTaskInBackground("Successful task", nil, func(out *Output, detail *Detail) error {
 		return nil
 	})
 	c.Assert(err, check.IsNil)
@@ -28,7 +28,8 @@ func (s *ListSuite) TestList(c *check.C) {
 	output, _ := list.GetTaskOutputByID(task.ID)
 	c.Check(output, check.Equals, "Task succeeded")
 
-	task, err = list.RunTaskInBackground("Faulty task", nil, func(out *Output) error {
+	task, err = list.RunTaskInBackground("Faulty task", nil, func(out *Output, detail *Detail) error {
+		detail.Store("Details")
 		out.WriteString("Test Progress\n")
 		return errors.New("Task failed")
 	})
@@ -41,4 +42,6 @@ func (s *ListSuite) TestList(c *check.C) {
 	c.Check(task.State, check.Equals, FAILED)
 	output, _ = list.GetTaskOutputByID(task.ID)
 	c.Check(output, check.Equals, "Test Progress\nTask failed with error: Task failed")
+	detail, _ := list.GetTaskDetailByID(task.ID)
+	c.Check(detail, check.Equals, "Details")
 }
