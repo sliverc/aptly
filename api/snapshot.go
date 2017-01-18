@@ -84,7 +84,7 @@ func apiSnapshotsCreateFromMirror(c *gin.Context) {
 
 	if conflictErr != nil {
 		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(412)
+		c.AbortWithStatus(409)
 		return
 	}
 
@@ -162,7 +162,7 @@ func apiSnapshotsCreate(c *gin.Context) {
 
 	if conflictErr != nil {
 		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(412)
+		c.AbortWithStatus(409)
 		return
 	}
 
@@ -220,7 +220,7 @@ func apiSnapshotsCreateFromRepository(c *gin.Context) {
 
 	if conflictErr != nil {
 		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(412)
+		c.AbortWithStatus(409)
 		return
 	}
 
@@ -275,7 +275,7 @@ func apiSnapshotsUpdate(c *gin.Context) {
 
 	if conflictErr != nil {
 		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(412)
+		c.AbortWithStatus(409)
 		return
 	}
 
@@ -338,7 +338,7 @@ func apiSnapshotsDrop(c *gin.Context) {
 
 	if conflictErr != nil {
 		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(412)
+		c.AbortWithStatus(409)
 		return
 	}
 

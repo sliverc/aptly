@@ -20,7 +20,7 @@ class TaskAPITestParallelTasks(APITest):
 
         # check that two mirror updates cannot run at the same time
         resp2 = self.put("/api/mirrors/" + mirror_name, json=mirror_desc)
-        self.check_equal(resp2.status_code, 412)
+        self.check_equal(resp2.status_code, 409)
 
         return resp.json()['ID'], mirror_name
 

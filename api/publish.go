@@ -207,7 +207,7 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 
 	if conflictErr != nil {
 		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(412)
+		c.AbortWithStatus(409)
 		return
 	}
 
@@ -325,7 +325,7 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 
 	if conflictErr != nil {
 		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(412)
+		c.AbortWithStatus(409)
 		return
 	}
 
@@ -365,7 +365,7 @@ func apiPublishDrop(c *gin.Context) {
 
 	if conflictErr != nil {
 		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(412)
+		c.AbortWithStatus(409)
 		return
 	}
 

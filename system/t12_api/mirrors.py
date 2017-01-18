@@ -14,7 +14,7 @@ class MirrorsAPITestCreateShow(APITest):
                        u'Distribution': 'oldstable-proposed-updates'}
 
         resp = self.post("/api/mirrors", json=mirror_desc)
-        self.check_equal(resp.status_code, 403)
+        self.check_equal(resp.status_code, 400)
         self.check_equal([{
             'error': 'unable to fetch mirror: verification of detached signature failed: exit status 2',
             'meta': 'Operation aborted'
@@ -33,7 +33,7 @@ class MirrorsAPITestCreateShow(APITest):
                            u'Distribution': 'oldstable-proposed-updates'}, resp.json())
 
         resp = self.get("/api/mirrors/" + mirror_desc["Name"] + "/packages")
-        self.check_equal(resp.status_code, 403)
+        self.check_equal(resp.status_code, 404)
 
 
 class MirrorsAPITestCreateUpdate(APITest):
@@ -52,7 +52,7 @@ class MirrorsAPITestCreateUpdate(APITest):
         self.check_equal(resp.status_code, 201)
 
         resp = self.get("/api/mirrors/" + mirror_name + "/packages")
-        self.check_equal(resp.status_code, 403)
+        self.check_equal(resp.status_code, 404)
 
         mirror_desc["Name"] = self.random_name()
         resp = self.put_task("/api/mirrors/" + mirror_name, json=mirror_desc)

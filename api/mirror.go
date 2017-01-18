@@ -111,7 +111,7 @@ func apiMirrorsCreate(c *gin.Context) {
 	downloader := context.NewDownloader(nil)
 	err = repo.Fetch(downloader, verifier)
 	if err != nil {
-		c.Fail(403, fmt.Errorf("unable to fetch mirror: %s", err))
+		c.Fail(400, fmt.Errorf("unable to fetch mirror: %s", err))
 		return
 	}
 
@@ -160,7 +160,7 @@ func apiMirrorsDrop(c *gin.Context) {
 
 	if conflictErr != nil {
 		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(412)
+		c.AbortWithStatus(409)
 		return
 	}
 
@@ -205,7 +205,7 @@ func apiMirrorsPackages(c *gin.Context) {
 	}
 
 	if repo.LastDownloadDate.IsZero() {
-		c.Fail(403, fmt.Errorf("Unable to show package list, mirror hasn't been downloaded yet."))
+		c.Fail(404, fmt.Errorf("Unable to show package list, mirror hasn't been downloaded yet."))
 		return
 	}
 
@@ -443,7 +443,7 @@ func apiMirrorsUpdate(c *gin.Context) {
 
 	if conflictErr != nil {
 		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(412)
+		c.AbortWithStatus(409)
 		return
 	}
 
