@@ -81,8 +81,8 @@ func releaseDatabaseConnection() error {
 }
 
 // runs tasks in background. Acquires database connection first.
-func runTaskInBackground(name string, resources []string, proc func(out *task.Output) error) (task.Task, *task.ResourceConflictError) {
-	return context.TaskList().RunTaskInBackground(name, resources, func(out *task.Output) error {
+func runTaskInBackground(name string, resources []string, proc task.Process) (task.Task, *task.ResourceConflictError) {
+	return context.TaskList().RunTaskInBackground(name, resources, func(out *task.Output, detail *task.Detail) error {
 		err := acquireDatabaseConnection()
 
 		if err != nil {
@@ -90,7 +90,7 @@ func runTaskInBackground(name string, resources []string, proc func(out *task.Ou
 		}
 
 		defer releaseDatabaseConnection()
-		return proc(out)
+		return proc(out, detail)
 	})
 }
 

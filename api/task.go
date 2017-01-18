@@ -3,8 +3,8 @@ package api
 import (
 	"strconv"
 
-	"github.com/smira/aptly/task"
 	"github.com/gin-gonic/gin"
+	"github.com/smira/aptly/task"
 )
 
 // GET /tasks
@@ -76,9 +76,28 @@ func apiTasksOutputShow(c *gin.Context) {
 	var output string
 	output, err = list.GetTaskOutputByID(int(id))
 	if err != nil {
-		c.Fail(500, err)
+		c.Fail(404, err)
 		return
 	}
 
 	c.JSON(200, output)
+}
+
+// GET /tasks/:id/detail
+func apiTasksDetailShow(c *gin.Context) {
+	list := context.TaskList()
+	id, err := strconv.ParseInt(c.Params.ByName("id"), 10, 0)
+	if err != nil {
+		c.Fail(500, err)
+		return
+	}
+
+	var detail interface{}
+	detail, err = list.GetTaskDetailByID(int(id))
+	if err != nil {
+		c.Fail(404, err)
+		return
+	}
+
+	c.JSON(200, detail)
 }

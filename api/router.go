@@ -120,6 +120,7 @@ func Router(c *ctx.AptlyContext) http.Handler {
 		root.GET("/tasks-wait", apiTasksWait)
 		root.GET("/tasks/:id/wait", apiTasksWaitForTaskByID)
 		root.GET("/tasks/:id/output", apiTasksOutputShow)
+		root.GET("/tasks/:id/detail", apiTasksDetailShow)
 		root.GET("/tasks/:id", apiTasksShow)
 	}
 

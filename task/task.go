@@ -1,7 +1,19 @@
 package task
 
+import (
+	"sync/atomic"
+)
+
 // State task is in
 type State int
+
+// Detail represents custom task details
+type Detail struct {
+	atomic.Value
+}
+
+// Process is a function implementing the actual task logic
+type Process func(out *Output, detail *Detail) error
 
 const (
 	// IDLE when task is waiting
@@ -17,16 +29,18 @@ const (
 // Task represents as task in a queue encapsulates process code
 type Task struct {
 	output  *Output
-	process func(out *Output) error
+	detail  *Detail
+	process Process
 	Name    string
 	ID      int
 	State   State
 }
 
 // NewTask creates new task
-func NewTask(process func(out *Output) error, name string, ID int) *Task {
+func NewTask(process Process, name string, ID int) *Task {
 	task := &Task{
 		output:  NewOutput(),
+		detail:  &Detail{},
 		process: process,
 		Name:    name,
 		ID:      ID,

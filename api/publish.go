@@ -177,7 +177,7 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 	collection := collectionFactory.PublishedRepoCollection()
 
 	taskName := fmt.Sprintf("Publish %s: %s", b.SourceKind, strings.Join(names, ", "))
-	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output, detail *task.Detail) error {
 		published.Origin = b.Origin
 		published.Label = b.Label
 
@@ -303,7 +303,7 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 
 	resources = append(resources, string(published.Key()))
 	taskName := fmt.Sprintf("Update published %s (%s): %s", published.SourceKind, strings.Join(updatedComponents, " "), strings.Join(updatedSnapshots, ", "))
-	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output, detail *task.Detail) error {
 		err := published.Publish(context.PackagePool(), context, collectionFactory, signer, out, b.ForceOverwrite)
 		if err != nil {
 			return fmt.Errorf("unable to update: %s", err)
@@ -353,7 +353,7 @@ func apiPublishDrop(c *gin.Context) {
 	resources := []string{string(published.Key())}
 
 	taskName := fmt.Sprintf("Delete published %s (%s)", prefix, distribution)
-	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output, detail *task.Detail) error {
 		err := collection.Remove(context, storage, prefix, distribution,
 			collectionFactory, out, force)
 		if err != nil {
