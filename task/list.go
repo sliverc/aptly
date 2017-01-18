@@ -67,11 +67,25 @@ func (list *List) GetTaskOutputByID(ID int) (string, error) {
 	return task.output.String(), nil
 }
 
+// GetTaskDetailByID returns detail of task with given id
+func (list *List) GetTaskDetailByID(ID int) (interface{}, error) {
+	task, err := list.GetTaskByID(ID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	detail := task.detail.Load()
+	if detail == nil {
+		return nil, fmt.Errorf("There are no details for task with id %v", ID)
+	}
+
+	return detail, nil
+}
 
 // RunTaskInBackground creates task and runs it in background. It won't be run and an error
-// returned if there is a running tasks which is using any needed resources already.
-func (list *List) RunTaskInBackground(name string, resources []string, process func(out *Output) error) (Task, *ResourceConflictError) {
-
+// returned if there are running tasks which are using needed resources already.
+func (list *List) RunTaskInBackground(name string, resources []string, process Process) (Task, *ResourceConflictError) {
 	list.Lock()
 	defer list.Unlock()
 
@@ -103,7 +117,7 @@ func (list *List) RunTaskInBackground(name string, resources []string, process f
 		}
 		list.Unlock()
 
-		err := process(task.output)
+		err := process(task.output, task.detail)
 
 		list.Lock()
 		{

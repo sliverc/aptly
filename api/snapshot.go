@@ -59,7 +59,7 @@ func apiSnapshotsCreateFromMirror(c *gin.Context) {
 	// including snapshot resource key
 	resources := []string{string(repo.Key()), "S" + b.Name}
 	taskName := fmt.Sprintf("Create snapshot of mirror %s", name)
-	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output, detail *task.Detail) error {
 		err := repo.CheckLock()
 		if err != nil {
 			return err
@@ -137,7 +137,7 @@ func apiSnapshotsCreate(c *gin.Context) {
 		resources = append(resources, string(sources[i].ResourceKey()))
 	}
 
-	task, conflictErr := runTaskInBackground("Create snapshot " + b.Name, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground("Create snapshot " + b.Name, resources, func(out *task.Output, detail *task.Detail) error {
 		list := deb.NewPackageList()
 
 		// verify package refs and build package list
@@ -200,7 +200,7 @@ func apiSnapshotsCreateFromRepository(c *gin.Context) {
 	// including snapshot resource key
 	resources := []string{string(repo.Key()), "S" + b.Name}
 	taskName := fmt.Sprintf("Create snapshot of repo %s", name)
-	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output, detail *task.Detail) error {
 		err := collection.LoadComplete(repo)
 		if err != nil {
 			return err
@@ -255,7 +255,7 @@ func apiSnapshotsUpdate(c *gin.Context) {
 
 	resources := []string{string(snapshot.ResourceKey()), "S" + b.Name}
 	taskName := fmt.Sprintf("Update snapshot %s", name)
-	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output, detail *task.Detail) error {
 		_, err := collection.ByName(b.Name)
 		if err == nil {
 			return fmt.Errorf("unable to rename: snapshot %s already exists", b.Name)
@@ -319,7 +319,7 @@ func apiSnapshotsDrop(c *gin.Context) {
 
 	resources := []string{string(snapshot.ResourceKey())}
 	taskName := fmt.Sprintf("Delete snapshot %s", name)
-	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output, detail *task.Detail) error {
 		published := publishedCollection.BySnapshot(snapshot)
 
 		if len(published) > 0 {

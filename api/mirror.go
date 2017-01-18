@@ -141,7 +141,7 @@ func apiMirrorsDrop(c *gin.Context) {
 
 	resources := []string{string(repo.Key())}
 	taskName := fmt.Sprintf("Delete mirror %s", name)
-	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output, detail *task.Detail) error {
 		err := repo.CheckLock()
 		if err != nil {
 			return fmt.Errorf("unable to drop: %s", err)
@@ -342,7 +342,8 @@ func apiMirrorsUpdate(c *gin.Context) {
 	}
 
 	resources := []string{string(remote.Key())}
-	task, conflictErr := runTaskInBackground("Update mirror "+b.Name, resources, func(out *task.Output) error {
+	task, conflictErr := runTaskInBackground("Update mirror "+b.Name, resources, func(out *task.Output, detail *task.Detail) error {
+
 		downloader := context.NewDownloader(out)
 		err := remote.Fetch(downloader, verifier)
 		if err != nil {
@@ -379,7 +380,7 @@ func apiMirrorsUpdate(c *gin.Context) {
 			}
 		}
 
-		queue, _, err := remote.BuildDownloadQueue(context.PackagePool())
+		queue, downloadSize, err := remote.BuildDownloadQueue(context.PackagePool())
 		if err != nil {
 			return fmt.Errorf("unable to update: %s", err)
 		}
@@ -399,12 +400,26 @@ func apiMirrorsUpdate(c *gin.Context) {
 			return fmt.Errorf("unable to update: %s", err)
 		}
 
-		// In separate goroutine (to avoid blocking main), push queue to downloader
 		count := len(queue)
+		taskDetail := struct {
+			TotalDownloadSize int64
+			RemainingDownloadSize int64
+			TotalNumberOfPackages int
+			RemainingNumberOfPackages int
+		}{
+			downloadSize, downloadSize, count, count,
+		}
+		detail.Store(taskDetail)
+
+		// In separate goroutine (to avoid blocking main), push queue to downloader
 		ch := make(chan error, count)
 		go func() {
 			for _, task := range queue {
 				downloader.DownloadWithChecksum(remote.PackageURL(task.RepoURI).String(), task.DestinationPath, ch, task.Checksums, b.SkipComponentCheck, b.MaxTries)
+
+				taskDetail.RemainingDownloadSize -= task.Checksums.Size
+				taskDetail.RemainingNumberOfPackages--
+				detail.Store(taskDetail)
 			}
 
 			queue = nil

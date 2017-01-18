@@ -58,6 +58,12 @@ class MirrorsAPITestCreateUpdate(APITest):
         resp = self.put_task("/api/mirrors/" + mirror_name, json=mirror_desc)
         self.check_equal(resp.json()["State"], 2)
 
+        _id = resp.json()['ID']
+        resp = self.get("/api/tasks/" + str(_id) + "/detail")
+        self.check_equal(resp.status_code, 200)
+        self.check_equal(resp.json()['RemainingDownloadSize'], 0)
+        self.check_equal(resp.json()['RemainingNumberOfPackages'], 0)
+
         resp = self.get("/api/mirrors/" + mirror_desc["Name"])
         self.check_equal(resp.status_code, 200)
         self.check_subset({u'Name': mirror_desc["Name"],
