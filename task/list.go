@@ -1,7 +1,6 @@
 package task
 
 import (
-	"bytes"
 	"fmt"
 	"sync"
 )
@@ -87,13 +86,7 @@ func (list *List) RunTaskInBackground(name string, resources []string, process f
 
 	list.idCounter++
 	wgTask := &sync.WaitGroup{}
-	task := &Task{
-		output:  &Output{mu: &sync.Mutex{}, output: &bytes.Buffer{}},
-		process: process,
-		Name:    name,
-		ID:      list.idCounter,
-		State:   IDLE,
-	}
+	task := NewTask(process, name, list.idCounter)
 
 	list.tasks = append(list.tasks, task)
 	list.wgTasks[task.ID] = wgTask
@@ -115,10 +108,10 @@ func (list *List) RunTaskInBackground(name string, resources []string, process f
 		list.Lock()
 		{
 			if err != nil {
-				fmt.Fprintf(task.output, "Task failed with error: %v\n", err)
+				task.output.Printf("Task failed with error: %v", err)
 				task.State = FAILED
 			} else {
-				fmt.Fprintln(task.output, "Task succeeded")
+				task.output.Print("Task succeeded")
 				task.State = SUCCEEDED
 			}
 

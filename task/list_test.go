@@ -2,16 +2,10 @@ package task
 
 import (
 	"errors"
-	"testing"
 
 	// need to import as check as otherwise List is redeclared
 	check "gopkg.in/check.v1"
 )
-
-// Launch gocheck tests
-func Test(t *testing.T) {
-	check.TestingT(t)
-}
 
 type ListSuite struct{}
 
@@ -32,7 +26,7 @@ func (s *ListSuite) TestList(c *check.C) {
 	task, _ = list.GetTaskByID(task.ID)
 	c.Check(task.State, check.Equals, SUCCEEDED)
 	output, _ := list.GetTaskOutputByID(task.ID)
-	c.Check(output, check.Equals, "Task succeeded\n")
+	c.Check(output, check.Equals, "Task succeeded")
 
 	task, err = list.RunTaskInBackground("Faulty task", nil, func(out *Output) error {
 		out.WriteString("Test Progress\n")
@@ -46,5 +40,5 @@ func (s *ListSuite) TestList(c *check.C) {
 	task, _ = list.GetTaskByID(task.ID)
 	c.Check(task.State, check.Equals, FAILED)
 	output, _ = list.GetTaskOutputByID(task.ID)
-	c.Check(output, check.Equals, "Test Progress\nTask failed with error: Task failed\n")
+	c.Check(output, check.Equals, "Test Progress\nTask failed with error: Task failed")
 }
