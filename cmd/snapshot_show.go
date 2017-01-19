@@ -35,19 +35,19 @@ func aptlySnapshotShow(cmd *commander.Command, args []string) error {
 		for _, sourceID := range snapshot.SourceIDs {
 			var name string
 			if snapshot.SourceKind == "snapshot" {
-				source, err := context.CollectionFactory().SnapshotCollection().ByUUID(sourceID)
+				source, err := collectionFactory.SnapshotCollection().ByUUID(sourceID)
 				if err != nil {
 					continue
 				}
 				name = source.Name
 			} else if snapshot.SourceKind == "local" {
-				source, err := context.CollectionFactory().LocalRepoCollection().ByUUID(sourceID)
+				source, err := collectionFactory.LocalRepoCollection().ByUUID(sourceID)
 				if err != nil {
 					continue
 				}
 				name = source.Name
 			} else if snapshot.SourceKind == "repo" {
-				source, err := context.CollectionFactory().RemoteRepoCollection().ByUUID(sourceID)
+				source, err := collectionFactory.RemoteRepoCollection().ByUUID(sourceID)
 				if err != nil {
 					continue
 				}
