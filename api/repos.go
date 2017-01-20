@@ -146,7 +146,7 @@ func apiReposDrop(c *gin.Context) {
 
 	if conflictErr != nil {
 		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(412)
+		c.AbortWithStatus(409)
 		return
 	}
 
@@ -231,7 +231,7 @@ func apiReposPackagesAddDelete(c *gin.Context, taskNamePrefix string, cb func(li
 
 	if conflictErr != nil {
 		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(412)
+		c.AbortWithStatus(409)
 		return
 	}
 
@@ -378,7 +378,7 @@ func apiReposPackageFromDir(c *gin.Context) {
 
 	if conflictErr != nil {
 		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(412)
+		c.AbortWithStatus(409)
 		return
 	}
 
