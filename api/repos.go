@@ -328,7 +328,7 @@ func apiReposPackageFromDir(c *gin.Context) {
 		}
 
 		processedFiles, failedFiles2, err = deb.ImportPackageFiles(list, packageFiles, forceReplace, verifier, context.PackagePool(),
-			collectionFactory.PackageCollection(), reporter, nil)
+			collectionFactory.PackageCollection(), reporter, nil, collectionFactory.ChecksumCollection())
 		failedFiles = append(failedFiles, failedFiles2...)
 
 		if err != nil {

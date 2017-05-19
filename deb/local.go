@@ -3,10 +3,11 @@ package deb
 import (
 	"bytes"
 	"fmt"
+	"log"
+
 	"github.com/smira/aptly/database"
 	"github.com/smira/go-uuid/uuid"
 	"github.com/ugorji/go/codec"
-	"log"
 )
 
 // LocalRepo is a collection of packages created locally

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/smira/aptly/aptly"
 	"github.com/smira/aptly/deb"
 	"github.com/smira/aptly/query"
 	"github.com/smira/commander"
@@ -29,9 +30,9 @@ func printReferencesTo(p *deb.Package, collectionFactory *deb.CollectionFactory)
 	}
 
 	err = collectionFactory.LocalRepoCollection().ForEach(func(repo *deb.LocalRepo) error {
-		err := collectionFactory.LocalRepoCollection().LoadComplete(repo)
-		if err != nil {
-			return err
+		e := collectionFactory.LocalRepoCollection().LoadComplete(repo)
+		if e != nil {
+			return e
 		}
 		if repo.RefList() != nil {
 			if repo.RefList().Has(p) {
@@ -45,20 +46,17 @@ func printReferencesTo(p *deb.Package, collectionFactory *deb.CollectionFactory)
 	}
 
 	err = collectionFactory.SnapshotCollection().ForEach(func(snapshot *deb.Snapshot) error {
-		err := collectionFactory.SnapshotCollection().LoadComplete(snapshot)
-		if err != nil {
-			return err
+		e := collectionFactory.SnapshotCollection().LoadComplete(snapshot)
+		if e != nil {
+			return e
 		}
 		if snapshot.RefList().Has(p) {
 			fmt.Printf("  snapshot %s\n", snapshot)
 		}
 		return nil
 	})
-	if err != nil {
-		return err
-	}
 
-	return nil
+	return err
 }
 
 func aptlyPackageShow(cmd *commander.Command, args []string) error {
@@ -88,11 +86,18 @@ func aptlyPackageShow(cmd *commander.Command, args []string) error {
 
 		if withFiles {
 			fmt.Printf("Files in the pool:\n")
+			packagePool := context.PackagePool()
 			for _, f := range p.Files() {
-				path, err := context.PackagePool().Path(f.Filename, f.Checksums.MD5)
+				var path string
+				path, err = f.GetPoolPath(packagePool)
 				if err != nil {
 					return err
 				}
+
+				if pp, ok := packagePool.(aptly.LocalPackagePool); ok {
+					path = pp.FullPath(path)
+				}
+
 				fmt.Printf("  %s\n", path)
 			}
 			fmt.Printf("\n")

@@ -1,9 +1,10 @@
 package api
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	ctx "github.com/smira/aptly/context"
-	"net/http"
 )
 
 var context *ctx.AptlyContext
@@ -25,18 +26,18 @@ func Router(c *ctx.AptlyContext) http.Handler {
 		go acquireDatabase()
 
 		router.Use(func(c *gin.Context) {
+			defer func() {
+				e := releaseDatabaseConnection()
+				if e != nil {
+					c.Fail(500, e)
+				}
+			}()
+
 			err := acquireDatabaseConnection()
 			if err != nil {
 				c.Fail(500, err)
 				return
 			}
-			defer func() {
-				err = releaseDatabaseConnection()
-				if err != nil {
-					c.Fail(500, err)
-					return
-				}
-			}()
 			c.Next()
 		})
 	}

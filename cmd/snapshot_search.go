@@ -2,16 +2,21 @@ package cmd
 
 import (
 	"fmt"
+	"sort"
+
 	"github.com/smira/aptly/deb"
 	"github.com/smira/aptly/query"
 	"github.com/smira/commander"
 	"github.com/smira/flag"
-	"sort"
 )
 
 func aptlySnapshotMirrorRepoSearch(cmd *commander.Command, args []string) error {
-	var err error
-	if len(args) != 2 {
+	var (
+		err error
+		q   deb.PackageQuery
+	)
+
+	if len(args) < 1 || len(args) > 2 {
 		cmd.Usage()
 		return commander.ErrCommandError
 	}
@@ -22,8 +27,9 @@ func aptlySnapshotMirrorRepoSearch(cmd *commander.Command, args []string) error 
 
 	var reflist *deb.PackageRefList
 
-	if command == "snapshot" {
-		snapshot, err := collectionFactory.SnapshotCollection().ByName(name)
+	if command == "snapshot" { // nolint: goconst
+		var snapshot *deb.Snapshot
+		snapshot, err = collectionFactory.SnapshotCollection().ByName(name)
 		if err != nil {
 			return fmt.Errorf("unable to search: %s", err)
 		}
@@ -35,7 +41,8 @@ func aptlySnapshotMirrorRepoSearch(cmd *commander.Command, args []string) error 
 
 		reflist = snapshot.RefList()
 	} else if command == "mirror" {
-		repo, err := collectionFactory.RemoteRepoCollection().ByName(name)
+		var repo *deb.RemoteRepo
+		repo, err = collectionFactory.RemoteRepoCollection().ByName(name)
 		if err != nil {
 			return fmt.Errorf("unable to search: %s", err)
 		}
@@ -46,8 +53,9 @@ func aptlySnapshotMirrorRepoSearch(cmd *commander.Command, args []string) error 
 		}
 
 		reflist = repo.RefList()
-	} else if command == "repo" {
-		repo, err := collectionFactory.LocalRepoCollection().ByName(name)
+	} else if command == "repo" { // nolint: goconst
+		var repo *deb.LocalRepo
+		repo, err = collectionFactory.LocalRepoCollection().ByName(name)
 		if err != nil {
 			return fmt.Errorf("unable to search: %s", err)
 		}
@@ -69,9 +77,13 @@ func aptlySnapshotMirrorRepoSearch(cmd *commander.Command, args []string) error 
 
 	list.PrepareIndex()
 
-	q, err := query.Parse(args[1])
-	if err != nil {
-		return fmt.Errorf("unable to search: %s", err)
+	if len(args) == 2 {
+		q, err = query.Parse(args[1])
+		if err != nil {
+			return fmt.Errorf("unable to search: %s", err)
+		}
+	} else {
+		q = &deb.MatchAllQuery{}
 	}
 
 	withDeps := context.Flags().Lookup("with-deps").Value.Get().(bool)
@@ -91,8 +103,8 @@ func aptlySnapshotMirrorRepoSearch(cmd *commander.Command, args []string) error 
 		}
 	}
 
-	result, err := list.Filter([]deb.PackageQuery{q}, withDeps,
-		nil, context.DependencyOptions(), architecturesList)
+	result, err := list.FilterWithProgress([]deb.PackageQuery{q}, withDeps,
+		nil, context.DependencyOptions(), architecturesList, context.Progress())
 	if err != nil {
 		return fmt.Errorf("unable to search: %s", err)
 	}
@@ -102,7 +114,7 @@ func aptlySnapshotMirrorRepoSearch(cmd *commander.Command, args []string) error 
 	}
 
 	format := context.Flags().Lookup("format").Value.String()
-	PrintPackageList(result, format)
+	PrintPackageList(result, format, "")
 
 	return err
 }
@@ -110,10 +122,12 @@ func aptlySnapshotMirrorRepoSearch(cmd *commander.Command, args []string) error 
 func makeCmdSnapshotSearch() *commander.Command {
 	cmd := &commander.Command{
 		Run:       aptlySnapshotMirrorRepoSearch,
-		UsageLine: "search <name> <package-query>",
+		UsageLine: "search <name> [<package-query>]",
 		Short:     "search snapshot for packages matching query",
 		Long: `
 Command search displays list of packages in snapshot that match package query
+
+If query is not specified, all the packages are displayed.
 
 Example:
 
