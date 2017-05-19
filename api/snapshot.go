@@ -138,7 +138,7 @@ func apiSnapshotsCreate(c *gin.Context) {
 		resources = append(resources, string(sources[i].ResourceKey()))
 	}
 
-	task, conflictErr := runTaskInBackground("Create snapshot " + b.Name, resources, func(out *task.Output, detail *task.Detail) error {
+	task, conflictErr := runTaskInBackground("Create snapshot "+b.Name, resources, func(out *task.Output, detail *task.Detail) error {
 		list := deb.NewPackageList()
 
 		// verify package refs and build package list
@@ -272,7 +272,6 @@ func apiSnapshotsUpdate(c *gin.Context) {
 
 		return collectionFactory.SnapshotCollection().Update(snapshot)
 	})
-
 
 	if conflictErr != nil {
 		c.Error(conflictErr, conflictErr.Tasks)

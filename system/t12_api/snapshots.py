@@ -147,7 +147,7 @@ class SnapshotsAPITestCreateUpdate(APITest):
 
         new_snapshot_name = self.random_name()
         resp = self.put_task("/api/snapshots/" + snapshot_name, json={'Name': new_snapshot_name,
-                                                                 'Description': 'New description'})
+                                                                      'Description': 'New description'})
         self.check_equal(resp.json()['State'], 2)
 
         resp = self.get("/api/snapshots/" + new_snapshot_name)
@@ -157,7 +157,7 @@ class SnapshotsAPITestCreateUpdate(APITest):
 
         # duplicate name
         resp = self.put_task("/api/snapshots/" + new_snapshot_name, json={'Name': new_snapshot_name,
-                                                                     'Description': 'New description'})
+                                                                          'Description': 'New description'})
         self.check_equal(resp.json()['State'], 3)
 
         # missing snapshot
@@ -197,14 +197,16 @@ class SnapshotsAPITestCreateDelete(APITest):
         self.check_equal(self.get("/api/snapshots/" + snap1).status_code, 404)
 
         # deleting published snapshot
-        resp = self.post_task("/api/publish",
-                         json={
-                             "SourceKind": "snapshot",
-                             "Distribution": "trusty",
-                             "Architectures": ["i386"],
-                             "Sources": [{"Name": snap2}],
-                             "Signing": DefaultSigningOptions,
-                         })
+        resp = self.post_task(
+            "/api/publish",
+            json={
+                 "SourceKind": "snapshot",
+                 "Distribution": "trusty",
+                 "Architectures": ["i386"],
+                 "Sources": [{"Name": snap2}],
+                 "Signing": DefaultSigningOptions,
+             }
+        )
         self.check_equal(resp.json()['State'], 2)
 
         self.check_equal(self.delete_task("/api/snapshots/" + snap2).json()['State'], 3)

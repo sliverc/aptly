@@ -29,12 +29,14 @@ class PublishAPITestRepo(APITest):
 
         # publishing under prefix, default distribution
         prefix = self.random_name()
-        resp = self.post_task("/api/publish/" + prefix,
-                         json={
-                             "SourceKind": "local",
-                             "Sources": [{"Name": repo_name}],
-                             "Signing": DefaultSigningOptions,
-                         })
+        resp = self.post_task(
+            "/api/publish/" + prefix,
+            json={
+                 "SourceKind": "local",
+                 "Sources": [{"Name": repo_name}],
+                 "Signing": DefaultSigningOptions,
+            }
+        )
         repo_expected = {
             'Architectures': ['i386', 'source'],
             'Distribution': 'wheezy',
@@ -60,14 +62,16 @@ class PublishAPITestRepo(APITest):
 
         # publishing under root, custom distribution, architectures
         distribution = self.random_name()
-        resp = self.post_task("/api/publish/:.",
-                         json={
-                             "SourceKind": "local",
-                             "Sources": [{"Name": repo_name}],
-                             "Signing": DefaultSigningOptions,
-                             "Distribution": distribution,
-                             "Architectures": ["i386", "amd64"],
-                         })
+        resp = self.post_task(
+            "/api/publish/:.",
+            json={
+                 "SourceKind": "local",
+                 "Sources": [{"Name": repo_name}],
+                 "Signing": DefaultSigningOptions,
+                 "Distribution": distribution,
+                 "Architectures": ["i386", "amd64"],
+            }
+        )
         self.check_equal(resp.json()['State'], 2)
         repo2_expected = {
             'Architectures': ['amd64', 'i386'],
@@ -118,13 +122,15 @@ class PublishSnapshotAPITest(APITest):
         self.check_equal(self.post_task("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshot_name}).json()['State'], 2)
 
         prefix = self.random_name()
-        resp = self.post_task("/api/publish/" + prefix,
-                         json={
-                             "SourceKind": "snapshot",
-                             "Sources": [{"Name": snapshot_name}],
-                             "Signing": DefaultSigningOptions,
-                             "Distribution": "squeeze",
-                         })
+        resp = self.post_task(
+            "/api/publish/" + prefix,
+            json={
+                "SourceKind": "snapshot",
+                "Sources": [{"Name": snapshot_name}],
+                "Signing": DefaultSigningOptions,
+                "Distribution": "squeeze",
+            }
+        )
         self.check_equal(resp.json()['State'], 2)
         repo_expected = {
             'Architectures': ['i386'],
@@ -159,19 +165,21 @@ class PublishUpdateAPITestRepo(APITest):
         d = self.random_name()
         self.check_equal(
             self.upload("/api/files/" + d,
-                         "pyspi_0.6.1-1.3.dsc",
-                         "pyspi_0.6.1-1.3.diff.gz", "pyspi_0.6.1.orig.tar.gz",
-                         "pyspi-0.6.1-1.3.stripped.dsc").status_code, 200)
+                        "pyspi_0.6.1-1.3.dsc",
+                        "pyspi_0.6.1-1.3.diff.gz", "pyspi_0.6.1.orig.tar.gz",
+                        "pyspi-0.6.1-1.3.stripped.dsc").status_code, 200)
         self.check_equal(self.post_task("/api/repos/" + repo_name + "/file/" + d).json()['State'], 2)
 
         prefix = self.random_name()
-        resp = self.post_task("/api/publish/" + prefix,
-                         json={
-                             "Architectures": ["i386", "source"],
-                             "SourceKind": "local",
-                             "Sources": [{"Name": repo_name}],
-                             "Signing": DefaultSigningOptions,
-                         })
+        resp = self.post_task(
+            "/api/publish/" + prefix,
+            json={
+                "Architectures": ["i386", "source"],
+                "SourceKind": "local",
+                "Sources": [{"Name": repo_name}],
+                "Signing": DefaultSigningOptions,
+            }
+        )
 
         self.check_equal(resp.json()['State'], 2)
 
@@ -186,10 +194,12 @@ class PublishUpdateAPITestRepo(APITest):
         self.check_equal(self.delete_task("/api/repos/" + repo_name + "/packages/",
                          json={"PackageRefs": ['Psource pyspi 0.6.1-1.4 f8f1daa806004e89']}).json()['State'], 2)
 
-        resp = self.put_task("/api/publish/" + prefix + "/wheezy",
-                        json={
-                            "Signing": DefaultSigningOptions,
-                        })
+        resp = self.put_task(
+            "/api/publish/" + prefix + "/wheezy",
+            json={
+                "Signing": DefaultSigningOptions,
+            }
+        )
         self.check_equal(resp.json()['State'], 2)
         repo_expected = {
             'Architectures': ['i386', 'source'],
@@ -226,22 +236,23 @@ class PublishSwitchAPITestRepo(APITest):
         d = self.random_name()
         self.check_equal(
             self.upload("/api/files/" + d,
-                         "pyspi_0.6.1-1.3.dsc",
-                         "pyspi_0.6.1-1.3.diff.gz", "pyspi_0.6.1.orig.tar.gz",
-                         "pyspi-0.6.1-1.3.stripped.dsc").status_code, 200)
+                        "pyspi_0.6.1-1.3.dsc",
+                        "pyspi_0.6.1-1.3.diff.gz", "pyspi_0.6.1.orig.tar.gz",
+                        "pyspi-0.6.1-1.3.stripped.dsc").status_code, 200)
         self.check_equal(self.post_task("/api/repos/" + repo_name + "/file/" + d).json()['State'], 2)
 
         snapshot1_name = self.random_name()
         self.check_equal(self.post_task("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshot1_name}).json()['State'], 2)
 
         prefix = self.random_name()
-        resp = self.post_task("/api/publish/" + prefix,
-                         json={
-                             "Architectures": ["i386", "source"],
-                             "SourceKind": "snapshot",
-                             "Sources": [{"Name": snapshot1_name}],
-                             "Signing": DefaultSigningOptions,
-                         })
+        resp = self.post_task(
+            "/api/publish/" + prefix,
+            json={
+                "Architectures": ["i386", "source"],
+                "SourceKind": "snapshot",
+                "Sources": [{"Name": snapshot1_name}],
+                "Signing": DefaultSigningOptions,
+            })
 
         self.check_equal(resp.json()['State'], 2)
         repo_expected = {
@@ -272,12 +283,13 @@ class PublishSwitchAPITestRepo(APITest):
         snapshot2_name = self.random_name()
         self.check_equal(self.post_task("/api/repos/" + repo_name + '/snapshots', json={'Name': snapshot2_name}).json()['State'], 2)
 
-        resp = self.put_task("/api/publish/" + prefix + "/wheezy",
-                        json={
-                            "Snapshots": [{"Component": "main", "Name": snapshot2_name}],
-                            "Signing": DefaultSigningOptions,
-                            "SkipContents": True,
-                        })
+        resp = self.put_task(
+            "/api/publish/" + prefix + "/wheezy",
+            json={
+                "Snapshots": [{"Component": "main", "Name": snapshot2_name}],
+                "Signing": DefaultSigningOptions,
+                "SkipContents": True,
+            })
         self.check_equal(resp.json()['State'], 2)
         repo_expected = {
             'Architectures': ['i386', 'source'],

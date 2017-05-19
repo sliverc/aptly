@@ -23,7 +23,6 @@ func apiGraph(c *gin.Context) {
 	factory := context.NewCollectionFactory()
 	layout := c.Request.URL.Query().Get("layout")
 
-
 	graph, err := deb.BuildGraph(factory, layout)
 	if err != nil {
 		c.JSON(500, err)

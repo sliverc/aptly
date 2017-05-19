@@ -6,8 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/smira/aptly/deb"
-	"github.com/smira/aptly/utils"
 	"github.com/smira/aptly/task"
+	"github.com/smira/aptly/utils"
 )
 
 // SigningOptions is a shared between publish API GPG options structure
@@ -329,7 +329,6 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 		c.AbortWithStatus(409)
 		return
 	}
-
 
 	c.JSON(202, task)
 }
