@@ -41,6 +41,27 @@ func (list *List) GetTasks() []Task {
 	return tasks
 }
 
+// DeleteTaskByID deletes given task from list. Only finished
+// tasks can be deleted.
+func (list *List) DeleteTaskByID(ID int) (Task, error) {
+	list.Lock()
+	defer list.Unlock()
+
+	tasks := list.tasks
+	for i, task := range tasks {
+		if task.ID == ID {
+			if task.State == SUCCEEDED || task.State == FAILED {
+				list.tasks = append(tasks[:i], tasks[i+1:]...)
+				return *task, nil
+			}
+
+			return *task, fmt.Errorf("Task with id %v is still running", ID)
+		}
+	}
+
+	return Task{}, fmt.Errorf("Could not find task with id %v", ID)
+}
+
 // GetTaskByID returns task with given id
 func (list *List) GetTaskByID(ID int) (Task, error) {
 	list.Lock()

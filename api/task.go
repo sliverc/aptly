@@ -57,7 +57,7 @@ func apiTasksShow(c *gin.Context) {
 	var task task.Task
 	task, err = list.GetTaskByID(int(id))
 	if err != nil {
-		c.Fail(500, err)
+		c.Fail(404, err)
 		return
 	}
 
@@ -100,4 +100,23 @@ func apiTasksDetailShow(c *gin.Context) {
 	}
 
 	c.JSON(200, detail)
+}
+
+// DELETE /tasks/:id
+func apiTasksDelete(c *gin.Context) {
+	list := context.TaskList()
+	id, err := strconv.ParseInt(c.Params.ByName("id"), 10, 0)
+	if err != nil {
+		c.Fail(500, err)
+		return
+	}
+
+	var task task.Task
+	task, err = list.DeleteTaskByID(int(id))
+	if err != nil {
+		c.Fail(400, err)
+		return
+	}
+
+	c.JSON(200, task)
 }
