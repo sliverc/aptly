@@ -3,11 +3,12 @@ package deb
 import (
 	"bufio"
 	"fmt"
-	"github.com/smira/aptly/aptly"
-	"github.com/smira/aptly/utils"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/smira/aptly/aptly"
+	"github.com/smira/aptly/utils"
 )
 
 type indexFiles struct {
@@ -154,7 +155,7 @@ func newIndexFiles(publishedStorage aptly.PublishedStorage, basePath, tempDir, s
 }
 
 func (files *indexFiles) PackageIndex(component, arch string, udeb bool) *indexFile {
-	if arch == "source" {
+	if arch == ArchitectureSource {
 		udeb = false
 	}
 	key := fmt.Sprintf("pi-%s-%s-%v", component, arch, udeb)
@@ -162,7 +163,7 @@ func (files *indexFiles) PackageIndex(component, arch string, udeb bool) *indexF
 	if !ok {
 		var relativePath string
 
-		if arch == "source" {
+		if arch == ArchitectureSource {
 			relativePath = filepath.Join(component, "source", "Sources")
 		} else {
 			if udeb {
@@ -187,7 +188,7 @@ func (files *indexFiles) PackageIndex(component, arch string, udeb bool) *indexF
 }
 
 func (files *indexFiles) ReleaseIndex(component, arch string, udeb bool) *indexFile {
-	if arch == "source" {
+	if arch == ArchitectureSource {
 		udeb = false
 	}
 	key := fmt.Sprintf("ri-%s-%s-%v", component, arch, udeb)
@@ -195,7 +196,7 @@ func (files *indexFiles) ReleaseIndex(component, arch string, udeb bool) *indexF
 	if !ok {
 		var relativePath string
 
-		if arch == "source" {
+		if arch == ArchitectureSource {
 			relativePath = filepath.Join(component, "source", "Release")
 		} else {
 			if udeb {
@@ -220,7 +221,7 @@ func (files *indexFiles) ReleaseIndex(component, arch string, udeb bool) *indexF
 }
 
 func (files *indexFiles) ContentsIndex(component, arch string, udeb bool) *indexFile {
-	if arch == "source" {
+	if arch == ArchitectureSource {
 		udeb = false
 	}
 	key := fmt.Sprintf("ci-%s-%s-%v", component, arch, udeb)

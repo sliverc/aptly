@@ -2,9 +2,9 @@ package api
 
 import (
 	"fmt"
-	"strings"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/smira/aptly/aptly"
@@ -199,7 +199,7 @@ func apiReposPackagesAddDelete(c *gin.Context, taskNamePrefix string, cb func(li
 	}
 
 	resources := []string{string(repo.Key())}
-	task, conflictErr := runTaskInBackground(taskNamePrefix + repo.Name, resources, func(out *task.Output, detail *task.Detail) error {
+	task, conflictErr := runTaskInBackground(taskNamePrefix+repo.Name, resources, func(out *task.Output, detail *task.Detail) error {
 		out.Print("Loading packages...\n")
 		list, err := deb.NewPackageListFromRefList(repo.RefList(), collectionFactory.PackageCollection(), nil)
 		if err != nil {
@@ -328,7 +328,7 @@ func apiReposPackageFromDir(c *gin.Context) {
 		}
 
 		processedFiles, failedFiles2, err = deb.ImportPackageFiles(list, packageFiles, forceReplace, verifier, context.PackagePool(),
-			collectionFactory.PackageCollection(), reporter, nil)
+			collectionFactory.PackageCollection(), reporter, nil, collectionFactory.ChecksumCollection())
 		failedFiles = append(failedFiles, failedFiles2...)
 
 		if err != nil {

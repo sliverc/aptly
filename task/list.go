@@ -9,21 +9,21 @@ import (
 // only one process is executed at the time
 type List struct {
 	*sync.Mutex
-	tasks []*Task
+	tasks   []*Task
 	wgTasks map[int]*sync.WaitGroup
-	wg *sync.WaitGroup
+	wg      *sync.WaitGroup
 	// resources currently used by running tasks
 	usedResources *ResourcesSet
-	idCounter int
+	idCounter     int
 }
 
 // NewList creates empty task list
 func NewList() *List {
 	list := &List{
-		Mutex: &sync.Mutex{},
-		tasks: make([]*Task, 0),
-		wgTasks: make(map[int]*sync.WaitGroup),
-		wg: &sync.WaitGroup{},
+		Mutex:         &sync.Mutex{},
+		tasks:         make([]*Task, 0),
+		wgTasks:       make(map[int]*sync.WaitGroup),
+		wg:            &sync.WaitGroup{},
 		usedResources: NewResourcesSet(),
 	}
 	return list
@@ -92,7 +92,7 @@ func (list *List) RunTaskInBackground(name string, resources []string, process P
 	tasks := list.usedResources.UsedBy(resources)
 	if len(tasks) > 0 {
 		conflictError := &ResourceConflictError{
-			Tasks: tasks,
+			Tasks:   tasks,
 			Message: "Needed resources are used by other tasks.",
 		}
 		return Task{}, conflictError

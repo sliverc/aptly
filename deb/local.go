@@ -3,10 +3,11 @@ package deb
 import (
 	"bytes"
 	"fmt"
+	"log"
+
 	"github.com/smira/aptly/database"
 	"github.com/smira/go-uuid/uuid"
 	"github.com/ugorji/go/codec"
-	"log"
 )
 
 // LocalRepo is a collection of packages created locally
@@ -97,7 +98,7 @@ type LocalRepoCollection struct {
 // NewLocalRepoCollection loads LocalRepos from DB and makes up collection
 func NewLocalRepoCollection(db database.Storage) *LocalRepoCollection {
 	result := &LocalRepoCollection{
-		db:      db,
+		db: db,
 	}
 
 	blobs := db.FetchByPrefix([]byte("L"))

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/smira/aptly/deb"
 	"github.com/smira/commander"
 	"github.com/smira/flag"
@@ -30,7 +31,7 @@ func aptlyPublishUpdate(cmd *commander.Command, args []string) error {
 		return fmt.Errorf("unable to update: %s", err)
 	}
 
-	if published.SourceKind != "local" {
+	if published.SourceKind != deb.SourceLocalRepo {
 		return fmt.Errorf("unable to update: not a local repository publish")
 	}
 

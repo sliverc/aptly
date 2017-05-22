@@ -44,19 +44,19 @@ type PublishedRepo struct {
 	Architectures []string
 	// SourceKind is "local"/"repo"
 	SourceKind string
-	// Skip contents generation
-	SkipContents bool
 
 	// Map of sources by each component: component name -> source UUID
 	Sources map[string]string
 
-	// Legacy fields for compatibily with old published repositories (< 0.6)
+	// Legacy fields for compatibility with old published repositories (< 0.6)
 	Component string
 	// SourceUUID is UUID of either snapshot or local repo
 	SourceUUID string `codec:"SnapshotUUID"`
-
 	// Map of component to source items
 	sourceItems map[string]repoSourceItem
+
+	// Skip contents generation
+	SkipContents bool
 
 	// True if repo is being re-published
 	rePublishing bool
@@ -95,19 +95,19 @@ func walkUpTree(source interface{}, collectionFactory *CollectionFactory) (rootD
 
 		if snapshot, ok := head.(*Snapshot); ok {
 			for _, uuid := range snapshot.SourceIDs {
-				if snapshot.SourceKind == "repo" {
+				if snapshot.SourceKind == SourceRemoteRepo {
 					remoteRepo, err := collectionFactory.RemoteRepoCollection().ByUUID(uuid)
 					if err != nil {
 						continue
 					}
 					current = append(current, remoteRepo)
-				} else if snapshot.SourceKind == "local" {
+				} else if snapshot.SourceKind == SourceLocalRepo {
 					localRepo, err := collectionFactory.LocalRepoCollection().ByUUID(uuid)
 					if err != nil {
 						continue
 					}
 					current = append(current, localRepo)
-				} else if snapshot.SourceKind == "snapshot" {
+				} else if snapshot.SourceKind == SourceSnapshot {
 					snap, err := collectionFactory.SnapshotCollection().ByUUID(uuid)
 					if err != nil {
 						continue
@@ -165,23 +165,19 @@ func NewPublishedRepo(storage, prefix, distribution string, architectures []stri
 		component               string
 		snapshot                *Snapshot
 		localRepo               *LocalRepo
-		ok                      bool
 	)
 
 	// get first source
 	source = sources[0]
 
 	// figure out source kind
-	snapshot, ok = source.(*Snapshot)
-	if ok {
-		result.SourceKind = "snapshot"
-	} else {
-		localRepo, ok = source.(*LocalRepo)
-		if ok {
-			result.SourceKind = "local"
-		} else {
-			panic("unknown source kind")
-		}
+	switch source.(type) {
+	case *Snapshot:
+		result.SourceKind = SourceSnapshot
+	case *LocalRepo:
+		result.SourceKind = SourceLocalRepo
+	default:
+		panic("unknown source kind")
 	}
 
 	for i := range sources {
@@ -212,11 +208,11 @@ func NewPublishedRepo(storage, prefix, distribution string, architectures []stri
 			return nil, fmt.Errorf("duplicate component name: %s", component)
 		}
 
-		if result.SourceKind == "snapshot" {
+		if result.SourceKind == SourceSnapshot {
 			snapshot = source.(*Snapshot)
 			result.Sources[component] = snapshot.UUID
 			result.sourceItems[component] = repoSourceItem{snapshot: snapshot}
-		} else if result.SourceKind == "local" {
+		} else if result.SourceKind == SourceLocalRepo {
 			localRepo = source.(*LocalRepo)
 			result.Sources[component] = localRepo.UUID
 			result.sourceItems[component] = repoSourceItem{localRepo: localRepo, packageRefs: localRepo.RefList()}
@@ -225,12 +221,7 @@ func NewPublishedRepo(storage, prefix, distribution string, architectures []stri
 
 	// clean & verify prefix
 	prefix = filepath.Clean(prefix)
-	if strings.HasPrefix(prefix, "/") {
-		prefix = prefix[1:]
-	}
-	if strings.HasSuffix(prefix, "/") {
-		prefix = prefix[:len(prefix)-1]
-	}
+	prefix = strings.TrimPrefix(strings.TrimSuffix(prefix, "/"), "/")
 	prefix = filepath.Clean(prefix)
 
 	for _, part := range strings.Split(prefix, "/") {
@@ -251,7 +242,7 @@ func NewPublishedRepo(storage, prefix, distribution string, architectures []stri
 		}
 	}
 
-	if strings.Index(distribution, "/") != -1 {
+	if strings.Contains(distribution, "/") {
 		return nil, fmt.Errorf("invalid distribution %s, '/' is not allowed", distribution)
 	}
 
@@ -357,10 +348,10 @@ func (p *PublishedRepo) RefKey(component string) []byte {
 // RefList returns list of package refs in local repo
 func (p *PublishedRepo) RefList(component string) *PackageRefList {
 	item := p.sourceItems[component]
-	if p.SourceKind == "local" {
+	if p.SourceKind == SourceLocalRepo {
 		return item.packageRefs
 	}
-	if p.SourceKind == "snapshot" {
+	if p.SourceKind == SourceSnapshot {
 		return item.snapshot.RefList()
 	}
 	panic("unknown source")
@@ -379,7 +370,7 @@ func (p *PublishedRepo) Components() []string {
 
 // UpdateLocalRepo updates content from local repo in component
 func (p *PublishedRepo) UpdateLocalRepo(component string) {
-	if p.SourceKind != "local" {
+	if p.SourceKind != SourceLocalRepo {
 		panic("not local repo publish")
 	}
 
@@ -392,7 +383,7 @@ func (p *PublishedRepo) UpdateLocalRepo(component string) {
 
 // UpdateSnapshot switches snapshot for component
 func (p *PublishedRepo) UpdateSnapshot(component string, snapshot *Snapshot) {
-	if p.SourceKind != "snapshot" {
+	if p.SourceKind != SourceSnapshot {
 		panic("not snapshot publish")
 	}
 
@@ -424,7 +415,7 @@ func (p *PublishedRepo) Decode(input []byte) error {
 
 	// old PublishedRepo were publishing only snapshots
 	if p.SourceKind == "" {
-		p.SourceKind = "snapshot"
+		p.SourceKind = SourceSnapshot
 	}
 
 	// <0.6 aptly used single SourceUUID + Component instead of Sources
@@ -467,6 +458,21 @@ func (p *PublishedRepo) Publish(packagePool aptly.PackagePool, publishedStorageP
 	if err != nil {
 		return err
 	}
+
+	tempDB, err := collectionFactory.TemporaryDB()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		e := tempDB.Close()
+		if e != nil && progress != nil {
+			progress.Printf("failed to close temp DB: %s", err)
+		}
+		e = tempDB.Drop()
+		if e != nil && progress != nil {
+			progress.Printf("failed to drop temp DB: %s", err)
+		}
+	}()
 
 	if progress != nil {
 		progress.Printf("Loading packages...\n")
@@ -562,14 +568,11 @@ func (p *PublishedRepo) Publish(packagePool aptly.PackagePool, publishedStorageP
 						contentIndex := contentIndexes[key]
 
 						if contentIndex == nil {
-							contentIndex = NewContentsIndex(collectionFactory.db, *p, component, arch, pkg.IsUdeb)
+							contentIndex = NewContentsIndex(tempDB)
 							contentIndexes[key] = contentIndex
 						}
 
-						err = contentIndex.Push(pkg, packagePool)
-						if err != nil {
-							return err
-						}
+						contentIndex.Push(pkg, packagePool, progress)
 					}
 
 					bufWriter, err = indexes.PackageIndex(component, arch, pkg.IsUdeb).BufWriter()
@@ -607,7 +610,8 @@ func (p *PublishedRepo) Publish(packagePool aptly.PackagePool, publishedStorageP
 					continue
 				}
 
-				bufWriter, err := indexes.ContentsIndex(component, arch, udeb).BufWriter()
+				var bufWriter *bufio.Writer
+				bufWriter, err = indexes.ContentsIndex(component, arch, udeb).BufWriter()
 				if err != nil {
 					return fmt.Errorf("unable to generate contents index: %v", err)
 				}
@@ -672,7 +676,7 @@ func (p *PublishedRepo) Publish(packagePool aptly.PackagePool, publishedStorageP
 	release["Suite"] = p.Distribution
 	release["Codename"] = p.Distribution
 	release["Date"] = time.Now().UTC().Format("Mon, 2 Jan 2006 15:04:05 MST")
-	release["Architectures"] = strings.Join(utils.StrSlicesSubstract(p.Architectures, []string{"source"}), " ")
+	release["Architectures"] = strings.Join(utils.StrSlicesSubstract(p.Architectures, []string{ArchitectureSource}), " ")
 	release["Description"] = " Generated by aptly\n"
 	release["MD5Sum"] = ""
 	release["SHA1"] = ""
@@ -716,12 +720,7 @@ func (p *PublishedRepo) Publish(packagePool aptly.PackagePool, publishedStorageP
 		return err
 	}
 
-	err = indexes.RenameFiles()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return indexes.RenameFiles()
 }
 
 // RemoveFiles removes files that were created by Publish
@@ -767,7 +766,7 @@ type PublishedRepoCollection struct {
 // NewPublishedRepoCollection loads PublishedRepos from DB and makes up collection
 func NewPublishedRepoCollection(db database.Storage) *PublishedRepoCollection {
 	result := &PublishedRepoCollection{
-		db:      db,
+		db: db,
 	}
 
 	blobs := db.FetchByPrefix([]byte("U"))
@@ -816,7 +815,7 @@ func (collection *PublishedRepoCollection) Update(repo *PublishedRepo) error {
 	batch := collection.db.StartBatch()
 	batch.Put(repo.Key(), repo.Encode())
 
-	if repo.SourceKind == "local" {
+	if repo.SourceKind == SourceLocalRepo {
 		for component, item := range repo.sourceItems {
 			batch.Put(repo.RefKey(component), item.packageRefs.Encode())
 		}
@@ -829,7 +828,7 @@ func (collection *PublishedRepoCollection) Update(repo *PublishedRepo) error {
 func (collection *PublishedRepoCollection) LoadComplete(repo *PublishedRepo, collectionFactory *CollectionFactory) (err error) {
 	repo.sourceItems = make(map[string]repoSourceItem)
 
-	if repo.SourceKind == "snapshot" {
+	if repo.SourceKind == SourceSnapshot {
 		for component, sourceUUID := range repo.Sources {
 			item := repoSourceItem{}
 
@@ -844,7 +843,7 @@ func (collection *PublishedRepoCollection) LoadComplete(repo *PublishedRepo, col
 
 			repo.sourceItems[component] = item
 		}
-	} else if repo.SourceKind == "local" {
+	} else if repo.SourceKind == SourceLocalRepo {
 		for component, sourceUUID := range repo.Sources {
 			item := repoSourceItem{}
 
@@ -910,9 +909,9 @@ func (collection *PublishedRepoCollection) ByUUID(uuid string) (*PublishedRepo, 
 
 // BySnapshot looks up repository by snapshot source
 func (collection *PublishedRepoCollection) BySnapshot(snapshot *Snapshot) []*PublishedRepo {
-	result := make([]*PublishedRepo, 0)
+	var result []*PublishedRepo
 	for _, r := range collection.list {
-		if r.SourceKind == "snapshot" {
+		if r.SourceKind == SourceSnapshot {
 			if r.SourceUUID == snapshot.UUID {
 				result = append(result, r)
 			}
@@ -930,9 +929,9 @@ func (collection *PublishedRepoCollection) BySnapshot(snapshot *Snapshot) []*Pub
 
 // ByLocalRepo looks up repository by local repo source
 func (collection *PublishedRepoCollection) ByLocalRepo(repo *LocalRepo) []*PublishedRepo {
-	result := make([]*PublishedRepo, 0)
+	var result []*PublishedRepo
 	for _, r := range collection.list {
-		if r.SourceKind == "local" {
+		if r.SourceKind == SourceLocalRepo {
 			if r.SourceUUID == repo.UUID {
 				result = append(result, r)
 			}

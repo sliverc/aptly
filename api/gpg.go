@@ -42,13 +42,13 @@ func apiGPGAddKey(c *gin.Context) {
 		defer os.RemoveAll(tempdir)
 
 		keypath := filepath.Join(tempdir, "key")
-		keyfile, err := os.Create(keypath)
-		if err != nil {
-			c.Fail(400, err)
+		keyfile, e := os.Create(keypath)
+		if e != nil {
+			c.Fail(400, e)
 			return
 		}
-		if _, err = keyfile.WriteString(b.GpgKeyArmor); err != nil {
-			c.Fail(400, err)
+		if _, e = keyfile.WriteString(b.GpgKeyArmor); e != nil {
+			c.Fail(400, e)
 		}
 		args = append(args, "--import", keypath)
 

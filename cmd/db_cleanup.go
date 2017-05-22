@@ -2,11 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"sort"
+	"strings"
+
 	"github.com/smira/aptly/deb"
 	"github.com/smira/aptly/utils"
 	"github.com/smira/commander"
-	"sort"
-	"strings"
 )
 
 // aptly db cleanup
@@ -37,9 +38,9 @@ func aptlyDbCleanup(cmd *commander.Command, args []string) error {
 			context.Progress().ColoredPrintf("- @{g}%s@|", repo.Name)
 		}
 
-		err := collectionFactory.RemoteRepoCollection().LoadComplete(repo)
-		if err != nil {
-			return err
+		e := collectionFactory.RemoteRepoCollection().LoadComplete(repo)
+		if e != nil {
+			return e
 		}
 		if repo.RefList() != nil {
 			existingPackageRefs = existingPackageRefs.Merge(repo.RefList(), false, true)
@@ -67,9 +68,9 @@ func aptlyDbCleanup(cmd *commander.Command, args []string) error {
 			context.Progress().ColoredPrintf("- @{g}%s@|", repo.Name)
 		}
 
-		err := collectionFactory.LocalRepoCollection().LoadComplete(repo)
-		if err != nil {
-			return err
+		e := collectionFactory.LocalRepoCollection().LoadComplete(repo)
+		if e != nil {
+			return e
 		}
 
 		if repo.RefList() != nil {
@@ -98,9 +99,9 @@ func aptlyDbCleanup(cmd *commander.Command, args []string) error {
 			context.Progress().ColoredPrintf("- @{g}%s@|", snapshot.Name)
 		}
 
-		err := collectionFactory.SnapshotCollection().LoadComplete(snapshot)
-		if err != nil {
-			return err
+		e := collectionFactory.SnapshotCollection().LoadComplete(snapshot)
+		if e != nil {
+			return e
 		}
 
 		existingPackageRefs = existingPackageRefs.Merge(snapshot.RefList(), false, true)
@@ -125,12 +126,12 @@ func aptlyDbCleanup(cmd *commander.Command, args []string) error {
 		if verbose {
 			context.Progress().ColoredPrintf("- @{g}%s:%s/%s{|}", published.Storage, published.Prefix, published.Distribution)
 		}
-		if published.SourceKind != "local" {
+		if published.SourceKind != deb.SourceLocalRepo {
 			return nil
 		}
-		err := collectionFactory.PublishedRepoCollection().LoadComplete(published, collectionFactory)
-		if err != nil {
-			return err
+		e := collectionFactory.PublishedRepoCollection().LoadComplete(published, collectionFactory)
+		if e != nil {
+			return e
 		}
 
 		for _, component := range published.Components() {
@@ -154,7 +155,7 @@ func aptlyDbCleanup(cmd *commander.Command, args []string) error {
 	context.Progress().ColoredPrintf("@{w!}Loading list of all packages...@|")
 	allPackageRefs := collectionFactory.PackageCollection().AllPackageRefs()
 
-	toDelete := allPackageRefs.Substract(existingPackageRefs)
+	toDelete := allPackageRefs.Subtract(existingPackageRefs)
 
 	// delete packages that are no longer referenced
 	context.Progress().ColoredPrintf("@{r!}Deleting unreferenced packages (%d)...@|", toDelete.Len())

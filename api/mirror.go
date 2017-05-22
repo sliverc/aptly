@@ -2,13 +2,16 @@ package api
 
 import (
 	"fmt"
+	"sort"
+	"strings"
+	"sync"
+
 	"github.com/gin-gonic/gin"
+	"github.com/smira/aptly/aptly"
 	"github.com/smira/aptly/deb"
 	"github.com/smira/aptly/query"
 	"github.com/smira/aptly/task"
 	"github.com/smira/aptly/utils"
-	"sort"
-	"strings"
 )
 
 func getVerifier(ignoreSignatures bool, keyRings []string) (utils.Verifier, error) {
@@ -205,7 +208,7 @@ func apiMirrorsPackages(c *gin.Context) {
 	}
 
 	if repo.LastDownloadDate.IsZero() {
-		c.Fail(404, fmt.Errorf("Unable to show package list, mirror hasn't been downloaded yet."))
+		c.Fail(404, fmt.Errorf("unable to show package list, mirror hasn't been downloaded yet"))
 		return
 	}
 
@@ -273,20 +276,20 @@ func apiMirrorsUpdate(c *gin.Context) {
 	)
 
 	var b struct {
-		Name               string
-		Filter             string
-		FilterWithDeps     bool
-		ForceComponents    bool
-		DownloadSources    bool
-		DownloadUdebs      bool
-		Architectures      []string
-		Components         []string
-		SkipComponentCheck bool
-		MaxTries           int
-		IgnoreSignatures   bool
-		Keyrings           []string
-		ForceUpdate        bool
-		DownloadLimit      int64
+		Name                 string
+		Filter               string
+		FilterWithDeps       bool
+		DownloadSources      bool
+		DownloadUdebs        bool
+		Architectures        []string
+		Components           []string
+		SkipComponentCheck   bool
+		MaxTries             int
+		IgnoreChecksums      bool
+		IgnoreSignatures     bool
+		Keyrings             []string
+		ForceUpdate          bool
+		SkipExistingPackages bool
 	}
 
 	collectionFactory := context.NewCollectionFactory()
@@ -374,21 +377,22 @@ func apiMirrorsUpdate(c *gin.Context) {
 				return fmt.Errorf("unable to update: %s", err)
 			}
 
-			_, _, err = remote.ApplyFilter(context.DependencyOptions(), filterQuery)
+			_, _, err = remote.ApplyFilter(context.DependencyOptions(), filterQuery, out)
 			if err != nil {
 				return fmt.Errorf("unable to update: %s", err)
 			}
 		}
 
-		queue, downloadSize, err := remote.BuildDownloadQueue(context.PackagePool())
+		queue, downloadSize, err := remote.BuildDownloadQueue(context.PackagePool(), collectionFactory.PackageCollection(),
+			collectionFactory.ChecksumCollection(), b.SkipExistingPackages)
 		if err != nil {
 			return fmt.Errorf("unable to update: %s", err)
 		}
 
 		defer func() {
 			// on any interruption, unlock the mirror
-			err := context.ReOpenDatabase()
-			if err == nil {
+			e := context.ReOpenDatabase()
+			if e == nil {
 				remote.MarkAsIdle()
 				collection.Update(remote)
 			}
@@ -402,42 +406,107 @@ func apiMirrorsUpdate(c *gin.Context) {
 
 		count := len(queue)
 		taskDetail := struct {
-			TotalDownloadSize int64
-			RemainingDownloadSize int64
-			TotalNumberOfPackages int
+			TotalDownloadSize         int64
+			RemainingDownloadSize     int64
+			TotalNumberOfPackages     int
 			RemainingNumberOfPackages int
 		}{
 			downloadSize, downloadSize, count, count,
 		}
 		detail.Store(taskDetail)
 
-		// In separate goroutine (to avoid blocking main), push queue to downloader
-		ch := make(chan error, count)
-		go func() {
-			for _, task := range queue {
-				downloader.DownloadWithChecksum(remote.PackageURL(task.RepoURI).String(), task.DestinationPath, ch, task.Checksums, b.SkipComponentCheck, b.MaxTries)
+		downloadQueue := make(chan int)
 
-				taskDetail.RemainingDownloadSize -= task.Checksums.Size
-				taskDetail.RemainingNumberOfPackages--
-				detail.Store(taskDetail)
+		var (
+			errors  []string
+			errLock sync.Mutex
+		)
+
+		pushError := func(err error) {
+			errLock.Lock()
+			errors = append(errors, err.Error())
+			errLock.Unlock()
+		}
+
+		go func() {
+			for idx := range queue {
+				downloadQueue <- idx
 			}
 
-			queue = nil
+			close(downloadQueue)
 		}()
 
-		// Wait for all downloads to finish
-		var errors []string
-		for count > 0 {
-			select {
-			case err = <-ch:
-				if err != nil {
-					errors = append(errors, err.Error())
+		var wg sync.WaitGroup
+		for i := 0; i < context.Config().DownloadConcurrency; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for {
+					idx, ok := <-downloadQueue
+					if !ok {
+						return
+					}
+
+					task := &queue[idx]
+
+					var e error
+
+					// provision download location
+					task.TempDownPath, e = context.PackagePool().(aptly.LocalPackagePool).GenerateTempPath(task.File.Filename)
+					if e != nil {
+						pushError(e)
+						continue
+					}
+
+					// download file...
+					e = context.Downloader().DownloadWithChecksum(
+						remote.PackageURL(task.File.DownloadURL()).String(),
+						task.TempDownPath,
+						&task.File.Checksums,
+						b.IgnoreChecksums,
+						b.MaxTries)
+					if e != nil {
+						pushError(e)
+						continue
+					}
+
+					taskDetail.RemainingDownloadSize -= task.File.Checksums.Size
+					taskDetail.RemainingNumberOfPackages--
+					detail.Store(taskDetail)
 				}
-				count--
+			}()
+		}
+
+		// Wait for all downloads to finish
+		wg.Wait()
+
+		if len(errors) > 0 {
+			return fmt.Errorf("unable to update: download errors:\n  %s", strings.Join(errors, "\n  "))
+		}
+
+		for idx := range queue {
+
+			task := &queue[idx]
+
+			// and import it back to the pool
+			task.File.PoolPath, err = context.PackagePool().Import(task.TempDownPath, task.File.Filename, &task.File.Checksums, true, collectionFactory.ChecksumCollection())
+			if err != nil {
+				return fmt.Errorf("unable to import file: %s", err)
+			}
+
+			// update "attached" files if any
+			for _, additionalTask := range task.Additional {
+				additionalTask.File.PoolPath = task.File.PoolPath
+				additionalTask.File.Checksums = task.File.Checksums
 			}
 		}
 
-		remote.FinalizeDownload()
+		remote.FinalizeDownload(collectionFactory, out)
+		err = collectionFactory.RemoteRepoCollection().Update(remote)
+		if err != nil {
+			return fmt.Errorf("unable to update: %s", err)
+		}
+
 		return nil
 	})
 

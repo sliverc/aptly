@@ -3,15 +3,16 @@ package api
 import (
 	"bytes"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"github.com/smira/aptly/deb"
 	"io"
 	"mime"
 	"os"
 	"os/exec"
+
+	"github.com/gin-gonic/gin"
+	"github.com/smira/aptly/deb"
 )
 
-// GET /api/graph.:ext
+// GET /api/graph.:ext?layout=[vertical|horizontal(default)]
 func apiGraph(c *gin.Context) {
 	var (
 		err    error
@@ -20,8 +21,9 @@ func apiGraph(c *gin.Context) {
 
 	ext := c.Params.ByName("ext")
 	factory := context.NewCollectionFactory()
+	layout := c.Request.URL.Query().Get("layout")
 
-	graph, err := deb.BuildGraph(factory)
+	graph, err := deb.BuildGraph(factory, layout)
 	if err != nil {
 		c.JSON(500, err)
 		return

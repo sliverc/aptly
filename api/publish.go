@@ -2,11 +2,12 @@ package api
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/smira/aptly/deb"
-	"github.com/smira/aptly/utils"
 	"github.com/smira/aptly/task"
-	"strings"
+	"github.com/smira/aptly/utils"
 )
 
 // SigningOptions is a shared between publish API GPG options structure
@@ -139,7 +140,7 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 
 			sources = append(sources, snapshot)
 		}
-	} else if b.SourceKind == "local" {
+	} else if b.SourceKind == deb.SourceLocalRepo {
 		var localRepo *deb.LocalRepo
 
 		localCollection := collectionFactory.LocalRepoCollection()
@@ -258,7 +259,7 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 	var updatedSnapshots []string
 	var resources []string
 
-	if published.SourceKind == "local" {
+	if published.SourceKind == deb.SourceLocalRepo {
 		if len(b.Snapshots) > 0 {
 			c.Fail(400, fmt.Errorf("snapshots shouldn't be given when updating local repo"))
 			return
@@ -276,15 +277,15 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 			}
 
 			snapshotCollection := collectionFactory.SnapshotCollection()
-			snapshot, err := snapshotCollection.ByName(snapshotInfo.Name)
+			snapshot, err2 := snapshotCollection.ByName(snapshotInfo.Name)
 			if err != nil {
-				c.Fail(404, err)
+				c.Fail(404, err2)
 				return
 			}
 
-			err = snapshotCollection.LoadComplete(snapshot)
-			if err != nil {
-				c.Fail(500, err)
+			err2 = snapshotCollection.LoadComplete(snapshot)
+			if err2 != nil {
+				c.Fail(500, err2)
 				return
 			}
 
@@ -328,7 +329,6 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 		c.AbortWithStatus(409)
 		return
 	}
-
 
 	c.JSON(202, task)
 }

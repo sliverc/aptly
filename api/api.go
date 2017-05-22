@@ -3,12 +3,13 @@ package api
 
 import (
 	"fmt"
+	"sort"
+
 	"github.com/gin-gonic/gin"
 	"github.com/smira/aptly/aptly"
 	"github.com/smira/aptly/deb"
 	"github.com/smira/aptly/query"
 	"github.com/smira/aptly/task"
-	"sort"
 )
 
 var dbRequests chan int
@@ -26,8 +27,8 @@ func apiVersion(c *gin.Context) {
 }
 
 const (
-	ACQUIREDB = iota
-	RELEASEDB
+	acquiredb = iota
+	releasedb
 )
 
 // Acquire database lock and release it when not needed anymore. Two
@@ -40,14 +41,14 @@ func acquireDatabase() {
 	for {
 		request := <-dbRequests
 		switch request {
-		case ACQUIREDB:
+		case acquiredb:
 			if clients == 0 {
 				dbAcks <- context.ReOpenDatabase()
 			} else {
 				dbAcks <- nil
 			}
 			clients++
-		case RELEASEDB:
+		case releasedb:
 			clients--
 			if clients == 0 {
 				dbAcks <- context.CloseDatabase()
@@ -67,7 +68,7 @@ func acquireDatabaseConnection() error {
 		return nil
 	}
 
-	dbRequests <- ACQUIREDB
+	dbRequests <- acquiredb
 	return <-dbAcks
 }
 
@@ -76,7 +77,7 @@ func releaseDatabaseConnection() error {
 	if dbRequests == nil {
 		return nil
 	}
-	dbRequests <- RELEASEDB
+	dbRequests <- releasedb
 	return <-dbAcks
 }
 
