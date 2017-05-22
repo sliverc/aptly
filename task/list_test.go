@@ -44,4 +44,6 @@ func (s *ListSuite) TestList(c *check.C) {
 	c.Check(output, check.Equals, "Test Progress\nTask failed with error: Task failed")
 	detail, _ := list.GetTaskDetailByID(task.ID)
 	c.Check(detail, check.Equals, "Details")
+	_, deleteErr := list.DeleteTaskByID(task.ID)
+	c.Check(deleteErr, check.IsNil)
 }

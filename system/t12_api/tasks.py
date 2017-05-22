@@ -81,8 +81,13 @@ class TaskAPITestParallelTasks(APITest):
         repo_task_id, repo_name = self._create_repo()
 
         self._wait_for_task(repo_task_id)
-        repo_snap_task_id = self._snapshot('repos', repo_name)
 
+        resp = self.delete("/api/tasks/%d" % repo_task_id)
+        self.check_equal(resp.status_code, 200)
+        resp = self.get("/api/tasks/%d" % repo_task_id)
+        self.check_equal(resp.status_code, 404)
+
+        repo_snap_task_id = self._snapshot('repos', repo_name)
         self._wait_for_task(repo_snap_task_id)
         publish_task_ids.append(self._publish('snapshot', repo_name))
 
