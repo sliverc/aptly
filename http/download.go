@@ -70,7 +70,9 @@ func (downloader *downloaderImpl) Download(url string, destination string) error
 func (downloader *downloaderImpl) DownloadWithChecksum(url string, destination string,
 	expected *utils.ChecksumInfo, ignoreMismatch bool, maxTries int) error {
 
-	downloader.progress.Printf("Downloading %s...\n", url)
+	if downloader.progress != nil {
+		downloader.progress.Printf("Downloading %s...\n", url)
+	}
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -172,7 +174,9 @@ func (downloader *downloaderImpl) download(req *http.Request, url, destination s
 
 		if err != nil {
 			if ignoreMismatch {
-				downloader.progress.Printf("WARNING: %s\n", err.Error())
+				if downloader.progress != nil {
+					downloader.progress.Printf("WARNING: %s\n", err.Error())
+				}
 			} else {
 				os.Remove(temppath)
 				return "", err

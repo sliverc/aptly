@@ -469,6 +469,10 @@ func apiMirrorsUpdate(c *gin.Context) {
 						pushError(e)
 						continue
 					}
+
+					taskDetail.RemainingDownloadSize -= task.File.Checksums.Size
+					taskDetail.RemainingNumberOfPackages--
+					detail.Store(taskDetail)
 				}
 			}()
 		}
