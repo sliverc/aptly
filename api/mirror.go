@@ -416,6 +416,7 @@ func apiMirrorsUpdate(c *gin.Context) {
 		detail.Store(taskDetail)
 
 		downloadQueue := make(chan int)
+		taskFinished := make(chan *deb.PackageDownloadTask)
 
 		var (
 			errors  []string
@@ -434,6 +435,20 @@ func apiMirrorsUpdate(c *gin.Context) {
 			}
 
 			close(downloadQueue)
+		}()
+
+		// update of task details need to be done in order
+		go func() {
+			for {
+				task, ok := <-taskFinished
+				if !ok {
+					return
+				}
+
+				taskDetail.RemainingDownloadSize -= task.File.Checksums.Size
+				taskDetail.RemainingNumberOfPackages--
+				detail.Store(taskDetail)
+			}
 		}()
 
 		var wg sync.WaitGroup
@@ -470,15 +485,14 @@ func apiMirrorsUpdate(c *gin.Context) {
 						continue
 					}
 
-					taskDetail.RemainingDownloadSize -= task.File.Checksums.Size
-					taskDetail.RemainingNumberOfPackages--
-					detail.Store(taskDetail)
+					taskFinished <- task
 				}
 			}()
 		}
 
 		// Wait for all downloads to finish
 		wg.Wait()
+		close(taskFinished)
 
 		if len(errors) > 0 {
 			return fmt.Errorf("unable to update: download errors:\n  %s", strings.Join(errors, "\n  "))
