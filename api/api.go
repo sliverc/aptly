@@ -9,7 +9,11 @@ import (
 	"github.com/smira/aptly/aptly"
 	"github.com/smira/aptly/deb"
 	"github.com/smira/aptly/query"
+	"github.com/smira/aptly/task"
 )
+
+var dbRequests chan int
+var dbAcks chan error
 
 // Lock order acquisition (canonical):
 //  1. RemoteRepoCollection
@@ -32,27 +36,63 @@ const (
 // acquire/release the database and the second one is to send acks.
 //
 // Should be run in a goroutine!
-func acquireDatabase(requests chan int, acks chan error) {
+func acquireDatabase() {
 	clients := 0
 	for {
-		request := <-requests
+		request := <-dbRequests
 		switch request {
 		case acquiredb:
 			if clients == 0 {
-				acks <- context.ReOpenDatabase()
+				dbAcks <- context.ReOpenDatabase()
 			} else {
-				acks <- nil
+				dbAcks <- nil
 			}
 			clients++
 		case releasedb:
 			clients--
 			if clients == 0 {
-				acks <- context.CloseDatabase()
+				dbAcks <- context.CloseDatabase()
 			} else {
-				acks <- nil
+				dbAcks <- nil
 			}
 		}
 	}
+}
+
+// Should be called before database access is needed in any api call.
+// Happens per default for each api call. It is important that you run
+// runTaskInBackground to run a task which accquire database.
+// Important do not forget to defer to releaseDatabaseConnection
+func acquireDatabaseConnection() error {
+	if dbRequests == nil {
+		return nil
+	}
+
+	dbRequests <- acquiredb
+	return <-dbAcks
+}
+
+// Release database connection when not needed anymore
+func releaseDatabaseConnection() error {
+	if dbRequests == nil {
+		return nil
+	}
+	dbRequests <- releasedb
+	return <-dbAcks
+}
+
+// runs tasks in background. Acquires database connection first.
+func runTaskInBackground(name string, resources []string, proc task.Process) (task.Task, *task.ResourceConflictError) {
+	return context.TaskList().RunTaskInBackground(name, resources, func(out *task.Output, detail *task.Detail) error {
+		err := acquireDatabaseConnection()
+
+		if err != nil {
+			return err
+		}
+
+		defer releaseDatabaseConnection()
+		return proc(out, detail)
+	})
 }
 
 // Common piece of code to show list of packages,

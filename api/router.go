@@ -20,25 +20,20 @@ func Router(c *ctx.AptlyContext) http.Handler {
 		// We use a goroutine to count the number of
 		// concurrent requests. When no more requests are
 		// running, we close the database to free the lock.
-		requests := make(chan int)
-		acks := make(chan error)
+		dbRequests = make(chan int)
+		dbAcks = make(chan error)
 
-		go acquireDatabase(requests, acks)
+		go acquireDatabase()
 
 		router.Use(func(c *gin.Context) {
-			var err error
-
-			requests <- acquiredb
-
 			defer func() {
-				requests <- releasedb
-				err = <-acks
-				if err != nil {
-					c.Fail(500, err)
+				e := releaseDatabaseConnection()
+				if e != nil {
+					c.Fail(500, e)
 				}
 			}()
 
-			err = <-acks
+			err := acquireDatabaseConnection()
 			if err != nil {
 				c.Fail(500, err)
 				return
@@ -106,6 +101,16 @@ func Router(c *ctx.AptlyContext) http.Handler {
 
 	{
 		root.GET("/graph.:ext", apiGraph)
+	}
+	{
+		root.GET("/tasks", apiTasksList)
+		root.POST("/tasks-clear", apiTasksClear)
+		root.GET("/tasks-wait", apiTasksWait)
+		root.GET("/tasks/:id/wait", apiTasksWaitForTaskByID)
+		root.GET("/tasks/:id/output", apiTasksOutputShow)
+		root.GET("/tasks/:id/detail", apiTasksDetailShow)
+		root.GET("/tasks/:id", apiTasksShow)
+		root.DELETE("/tasks/:id", apiTasksDelete)
 	}
 
 	return router
