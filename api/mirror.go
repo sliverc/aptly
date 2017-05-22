@@ -9,17 +9,17 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/smira/aptly/aptly"
 	"github.com/smira/aptly/deb"
+	"github.com/smira/aptly/pgp"
 	"github.com/smira/aptly/query"
 	"github.com/smira/aptly/task"
-	"github.com/smira/aptly/utils"
 )
 
-func getVerifier(ignoreSignatures bool, keyRings []string) (utils.Verifier, error) {
+func getVerifier(ignoreSignatures bool, keyRings []string) (pgp.Verifier, error) {
 	if ignoreSignatures {
 		return nil, nil
 	}
 
-	verifier := &utils.GpgVerifier{}
+	verifier := &pgp.GpgVerifier{}
 	for _, keyRing := range keyRings {
 		verifier.AddKeyring(keyRing)
 	}
