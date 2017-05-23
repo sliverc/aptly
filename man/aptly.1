@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "APTLY" "1" "April 2017" "" ""
+.TH "APTLY" "1" "May 2017" "" ""
 .
 .SH "NAME"
 \fBaptly\fR \- Debian repository management tool
@@ -1336,6 +1336,10 @@ Options:
 run GPG with detached tty
 .
 .TP
+\-\fBbutautomaticupgrades\fR=
+set value for ButAutomaticUpgrades field
+.
+.TP
 \-\fBcomponent\fR=
 component name to publish (for multi\-component publishing, separate components with commas)
 .
@@ -1358,6 +1362,10 @@ GPG keyring to use (instead of default)
 .TP
 \-\fBlabel\fR=
 label to publish
+.
+.TP
+\-\fBnotautomatic\fR=
+set value for NotAutomatic field
 .
 .TP
 \-\fBorigin\fR=
@@ -1423,6 +1431,10 @@ Options:
 run GPG with detached tty
 .
 .TP
+\-\fBbutautomaticupgrades\fR=
+overwrite value for ButAutomaticUpgrades field
+.
+.TP
 \-\fBcomponent\fR=
 component name to publish (for multi\-component publishing, separate components with commas)
 .
@@ -1447,8 +1459,12 @@ GPG keyring to use (instead of default)
 label to publish
 .
 .TP
+\-\fBnotautomatic\fR=
+overwrite value for NotAutomatic field
+.
+.TP
 \-\fBorigin\fR=
-origin name to publish
+overwrite origin name to publish
 .
 .TP
 \-\fBpassphrase\fR=
