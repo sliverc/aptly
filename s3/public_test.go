@@ -277,8 +277,7 @@ func (s *PublishedStorageSuite) TestLinkFromPool(c *C) {
 func (s *PublishedStorageSuite) TestSymLink(c *C) {
 	s.PutFile(c, "a/b", []byte("test"))
 
-	var err error
-	err = s.storage.SymLink("a/b", "a/b.link")
+	err := s.storage.SymLink("a/b", "a/b.link")
 	c.Check(err, IsNil)
 
 	var link string
@@ -288,7 +287,6 @@ func (s *PublishedStorageSuite) TestSymLink(c *C) {
 
 	c.Skip("copy not available in s3test")
 }
-
 
 func (s *PublishedStorageSuite) TestFileExists(c *C) {
 	s.PutFile(c, "a/b", []byte("test"))
