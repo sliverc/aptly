@@ -116,7 +116,7 @@ func showPackages(c *gin.Context, reflist *deb.PackageRefList, collectionFactory
 
 	list, err := deb.NewPackageListFromRefList(reflist, collectionFactory.PackageCollection(), nil)
 	if err != nil {
-		c.Fail(404, err)
+		c.AbortWithError(404, err)
 		return
 	}
 
@@ -124,7 +124,7 @@ func showPackages(c *gin.Context, reflist *deb.PackageRefList, collectionFactory
 	if queryS != "" {
 		q, err := query.Parse(c.Request.URL.Query().Get("q"))
 		if err != nil {
-			c.Fail(400, err)
+			c.AbortWithError(400, err)
 			return
 		}
 
@@ -141,7 +141,7 @@ func showPackages(c *gin.Context, reflist *deb.PackageRefList, collectionFactory
 			sort.Strings(architecturesList)
 
 			if len(architecturesList) == 0 {
-				c.Fail(400, fmt.Errorf("unable to determine list of architectures, please specify explicitly"))
+				c.AbortWithError(400, fmt.Errorf("unable to determine list of architectures, please specify explicitly"))
 				return
 			}
 		}
@@ -151,7 +151,7 @@ func showPackages(c *gin.Context, reflist *deb.PackageRefList, collectionFactory
 		list, err = list.Filter([]deb.PackageQuery{q}, withDeps,
 			nil, context.DependencyOptions(), architecturesList)
 		if err != nil {
-			c.Fail(500, fmt.Errorf("unable to search: %s", err))
+			c.AbortWithError(500, fmt.Errorf("unable to search: %s", err))
 			return
 		}
 	}

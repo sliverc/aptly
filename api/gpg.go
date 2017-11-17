@@ -18,7 +18,7 @@ func apiGPGAddKey(c *gin.Context) {
 		Keyring     string
 	}
 
-	if !c.Bind(&b) {
+	if c.Bind(&b) != nil {
 		return
 	}
 
@@ -36,7 +36,7 @@ func apiGPGAddKey(c *gin.Context) {
 		var tempdir string
 		tempdir, err = ioutil.TempDir(os.TempDir(), "aptly")
 		if err != nil {
-			c.Fail(400, err)
+			c.AbortWithError(400, err)
 			return
 		}
 		defer os.RemoveAll(tempdir)
@@ -44,11 +44,11 @@ func apiGPGAddKey(c *gin.Context) {
 		keypath := filepath.Join(tempdir, "key")
 		keyfile, e := os.Create(keypath)
 		if e != nil {
-			c.Fail(400, e)
+			c.AbortWithError(400, e)
 			return
 		}
 		if _, e = keyfile.WriteString(b.GpgKeyArmor); e != nil {
-			c.Fail(400, e)
+			c.AbortWithError(400, e)
 		}
 		args = append(args, "--import", keypath)
 
@@ -63,7 +63,7 @@ func apiGPGAddKey(c *gin.Context) {
 	cmd := exec.Command("gpg", args...)
 	cmd.Stdout = os.Stdout
 	if err = cmd.Run(); err != nil {
-		c.Fail(400, err)
+		c.AbortWithError(400, err)
 		return
 	}
 

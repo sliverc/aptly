@@ -42,7 +42,7 @@ func apiSnapshotsCreateFromMirror(c *gin.Context) {
 		Description string
 	}
 
-	if !c.Bind(&b) {
+	if c.Bind(&b) != nil {
 		return
 	}
 
@@ -53,7 +53,7 @@ func apiSnapshotsCreateFromMirror(c *gin.Context) {
 
 	repo, err = collection.ByName(name)
 	if err != nil {
-		c.Fail(404, err)
+		c.AbortWithError(404, err)
 		return
 	}
 
@@ -84,8 +84,7 @@ func apiSnapshotsCreateFromMirror(c *gin.Context) {
 	})
 
 	if conflictErr != nil {
-		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(409)
+		c.AbortWithError(409, conflictErr)
 		return
 	}
 
@@ -106,7 +105,7 @@ func apiSnapshotsCreate(c *gin.Context) {
 		PackageRefs     []string
 	}
 
-	if !c.Bind(&b) {
+	if c.Bind(&b) != nil {
 		return
 	}
 
@@ -125,13 +124,13 @@ func apiSnapshotsCreate(c *gin.Context) {
 	for i := range b.SourceSnapshots {
 		sources[i], err = snapshotCollection.ByName(b.SourceSnapshots[i])
 		if err != nil {
-			c.Fail(404, err)
+			c.AbortWithError(404, err)
 			return
 		}
 
 		err = snapshotCollection.LoadComplete(sources[i])
 		if err != nil {
-			c.Fail(500, err)
+			c.AbortWithError(500, err)
 			return
 		}
 
@@ -162,8 +161,7 @@ func apiSnapshotsCreate(c *gin.Context) {
 	})
 
 	if conflictErr != nil {
-		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(409)
+		c.AbortWithError(409, conflictErr)
 		return
 	}
 
@@ -183,7 +181,7 @@ func apiSnapshotsCreateFromRepository(c *gin.Context) {
 		Description string
 	}
 
-	if !c.Bind(&b) {
+	if c.Bind(&b) != nil {
 		return
 	}
 
@@ -194,7 +192,7 @@ func apiSnapshotsCreateFromRepository(c *gin.Context) {
 
 	repo, err = collection.ByName(name)
 	if err != nil {
-		c.Fail(404, err)
+		c.AbortWithError(404, err)
 		return
 	}
 
@@ -220,8 +218,7 @@ func apiSnapshotsCreateFromRepository(c *gin.Context) {
 	})
 
 	if conflictErr != nil {
-		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(409)
+		c.AbortWithError(409, conflictErr)
 		return
 	}
 
@@ -240,7 +237,7 @@ func apiSnapshotsUpdate(c *gin.Context) {
 		Description string
 	}
 
-	if !c.Bind(&b) {
+	if c.Bind(&b) != nil {
 		return
 	}
 
@@ -250,7 +247,7 @@ func apiSnapshotsUpdate(c *gin.Context) {
 
 	snapshot, err = collection.ByName(name)
 	if err != nil {
-		c.Fail(404, err)
+		c.AbortWithError(404, err)
 		return
 	}
 
@@ -274,8 +271,7 @@ func apiSnapshotsUpdate(c *gin.Context) {
 	})
 
 	if conflictErr != nil {
-		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(409)
+		c.AbortWithError(409, conflictErr)
 		return
 	}
 
@@ -289,13 +285,13 @@ func apiSnapshotsShow(c *gin.Context) {
 
 	snapshot, err := collection.ByName(c.Params.ByName("name"))
 	if err != nil {
-		c.Fail(404, err)
+		c.AbortWithError(404, err)
 		return
 	}
 
 	err = collection.LoadComplete(snapshot)
 	if err != nil {
-		c.Fail(500, err)
+		c.AbortWithError(500, err)
 		return
 	}
 
@@ -313,7 +309,7 @@ func apiSnapshotsDrop(c *gin.Context) {
 
 	snapshot, err := snapshotCollection.ByName(name)
 	if err != nil {
-		c.Fail(404, err)
+		c.AbortWithError(404, err)
 		return
 	}
 
@@ -337,8 +333,7 @@ func apiSnapshotsDrop(c *gin.Context) {
 	})
 
 	if conflictErr != nil {
-		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(409)
+		c.AbortWithError(409, conflictErr)
 		return
 	}
 
@@ -354,32 +349,32 @@ func apiSnapshotsDiff(c *gin.Context) {
 
 	snapshotA, err := collection.ByName(c.Params.ByName("name"))
 	if err != nil {
-		c.Fail(404, err)
+		c.AbortWithError(404, err)
 		return
 	}
 
 	snapshotB, err := collection.ByName(c.Params.ByName("withSnapshot"))
 	if err != nil {
-		c.Fail(404, err)
+		c.AbortWithError(404, err)
 		return
 	}
 
 	err = collection.LoadComplete(snapshotA)
 	if err != nil {
-		c.Fail(500, err)
+		c.AbortWithError(500, err)
 		return
 	}
 
 	err = collection.LoadComplete(snapshotB)
 	if err != nil {
-		c.Fail(500, err)
+		c.AbortWithError(500, err)
 		return
 	}
 
 	// Calculate diff
 	diff, err := snapshotA.RefList().Diff(snapshotB.RefList(), collectionFactory.PackageCollection())
 	if err != nil {
-		c.Fail(500, err)
+		c.AbortWithError(500, err)
 		return
 	}
 
@@ -403,13 +398,13 @@ func apiSnapshotsSearchPackages(c *gin.Context) {
 
 	snapshot, err := collection.ByName(c.Params.ByName("name"))
 	if err != nil {
-		c.Fail(404, err)
+		c.AbortWithError(404, err)
 		return
 	}
 
 	err = collection.LoadComplete(snapshot)
 	if err != nil {
-		c.Fail(500, err)
+		c.AbortWithError(500, err)
 		return
 	}
 

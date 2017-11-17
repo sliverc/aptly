@@ -69,7 +69,7 @@ func apiPublishList(c *gin.Context) {
 	})
 
 	if err != nil {
-		c.Fail(500, err)
+		c.AbortWithError(500, err)
 		return
 	}
 
@@ -98,18 +98,18 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 		Signing              SigningOptions
 	}
 
-	if !c.Bind(&b) {
+	if c.Bind(&b) != nil {
 		return
 	}
 
 	signer, err := getSigner(&b.Signing)
 	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to initialize GPG signer: %s", err))
+		c.AbortWithError(500, fmt.Errorf("unable to initialize GPG signer: %s", err))
 		return
 	}
 
 	if len(b.Sources) == 0 {
-		c.Fail(400, fmt.Errorf("unable to publish: soures are empty"))
+		c.AbortWithError(400, fmt.Errorf("unable to publish: soures are empty"))
 		return
 	}
 
@@ -130,14 +130,14 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 
 			snapshot, err = snapshotCollection.ByName(source.Name)
 			if err != nil {
-				c.Fail(404, fmt.Errorf("unable to publish: %s", err))
+				c.AbortWithError(404, fmt.Errorf("unable to publish: %s", err))
 				return
 			}
 
 			resources = append(resources, string(snapshot.ResourceKey()))
 			err = snapshotCollection.LoadComplete(snapshot)
 			if err != nil {
-				c.Fail(500, fmt.Errorf("unable to publish: %s", err))
+				c.AbortWithError(500, fmt.Errorf("unable to publish: %s", err))
 				return
 			}
 
@@ -154,26 +154,26 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 
 			localRepo, err = localCollection.ByName(source.Name)
 			if err != nil {
-				c.Fail(404, fmt.Errorf("unable to publish: %s", err))
+				c.AbortWithError(404, fmt.Errorf("unable to publish: %s", err))
 				return
 			}
 
 			resources = append(resources, string(localRepo.Key()))
 			err = localCollection.LoadComplete(localRepo)
 			if err != nil {
-				c.Fail(500, fmt.Errorf("unable to publish: %s", err))
+				c.AbortWithError(500, fmt.Errorf("unable to publish: %s", err))
 			}
 
 			sources = append(sources, localRepo)
 		}
 	} else {
-		c.Fail(400, fmt.Errorf("unknown SourceKind"))
+		c.AbortWithError(400, fmt.Errorf("unknown SourceKind"))
 		return
 	}
 
 	published, err := deb.NewPublishedRepo(storage, prefix, b.Distribution, b.Architectures, components, sources, collectionFactory)
 	if err != nil {
-		c.Fail(400, fmt.Errorf("unable to publish: %s", err))
+		c.AbortWithError(500, fmt.Errorf("unable to publish: %s", err))
 		return
 	}
 
@@ -218,8 +218,7 @@ func apiPublishRepoOrSnapshot(c *gin.Context) {
 	})
 
 	if conflictErr != nil {
-		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(409)
+		c.AbortWithError(409, conflictErr)
 		return
 	}
 
@@ -236,19 +235,20 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 		ForceOverwrite bool
 		Signing        SigningOptions
 		SkipContents   *bool
+		SkipCleanup    *bool
 		Snapshots      []struct {
 			Component string `binding:"required"`
 			Name      string `binding:"required"`
 		}
 	}
 
-	if !c.Bind(&b) {
+	if c.Bind(&b) != nil {
 		return
 	}
 
 	signer, err := getSigner(&b.Signing)
 	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to initialize GPG signer: %s", err))
+		c.AbortWithError(500, fmt.Errorf("unable to initialize GPG signer: %s", err))
 		return
 	}
 
@@ -257,12 +257,12 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 
 	published, err := collection.ByStoragePrefixDistribution(storage, prefix, distribution)
 	if err != nil {
-		c.Fail(404, fmt.Errorf("unable to update: %s", err))
+		c.AbortWithError(404, fmt.Errorf("unable to update: %s", err))
 		return
 	}
 	err = collection.LoadComplete(published, collectionFactory)
 	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to update: %s", err))
+		c.AbortWithError(500, fmt.Errorf("unable to update: %s", err))
 		return
 	}
 
@@ -272,7 +272,7 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 
 	if published.SourceKind == deb.SourceLocalRepo {
 		if len(b.Snapshots) > 0 {
-			c.Fail(400, fmt.Errorf("snapshots shouldn't be given when updating local repo"))
+			c.AbortWithError(400, fmt.Errorf("snapshots shouldn't be given when updating local repo"))
 			return
 		}
 		updatedComponents = published.Components()
@@ -283,20 +283,20 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 		publishedComponents := published.Components()
 		for _, snapshotInfo := range b.Snapshots {
 			if !utils.StrSliceHasItem(publishedComponents, snapshotInfo.Component) {
-				c.Fail(404, fmt.Errorf("component %s is not in published repository", snapshotInfo.Component))
+				c.AbortWithError(404, fmt.Errorf("component %s is not in published repository", snapshotInfo.Component))
 				return
 			}
 
 			snapshotCollection := collectionFactory.SnapshotCollection()
 			snapshot, err2 := snapshotCollection.ByName(snapshotInfo.Name)
 			if err != nil {
-				c.Fail(404, err2)
+				c.AbortWithError(404, err2)
 				return
 			}
 
 			err2 = snapshotCollection.LoadComplete(snapshot)
 			if err2 != nil {
-				c.Fail(500, err2)
+				c.AbortWithError(500, err2)
 				return
 			}
 
@@ -305,7 +305,7 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 			updatedSnapshots = append(updatedSnapshots, snapshot.Name)
 		}
 	} else {
-		c.Fail(500, fmt.Errorf("unknown published repository type"))
+		c.AbortWithError(500, fmt.Errorf("unknown published repository type"))
 		return
 	}
 
@@ -336,8 +336,7 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 	})
 
 	if conflictErr != nil {
-		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(409)
+		c.AbortWithError(409, conflictErr)
 		return
 	}
 
@@ -347,6 +346,7 @@ func apiPublishUpdateSwitch(c *gin.Context) {
 // DELETE /publish/:prefix/:distribution
 func apiPublishDrop(c *gin.Context) {
 	force := c.Request.URL.Query().Get("force") == "1"
+	skipCleanup := c.Request.URL.Query().Get("SkipCleanup") == "1"
 
 	param := parseEscapedPath(c.Params.ByName("prefix"))
 	storage, prefix := deb.ParsePrefix(param)
@@ -357,7 +357,7 @@ func apiPublishDrop(c *gin.Context) {
 
 	published, err := collection.ByStoragePrefixDistribution(storage, prefix, distribution)
 	if err != nil {
-		c.Fail(400, fmt.Errorf("unable to remove: %s", err))
+		c.AbortWithError(400, fmt.Errorf("unable to remove: %s", err))
 		return
 	}
 
@@ -366,7 +366,7 @@ func apiPublishDrop(c *gin.Context) {
 	taskName := fmt.Sprintf("Delete published %s (%s)", prefix, distribution)
 	task, conflictErr := runTaskInBackground(taskName, resources, func(out *task.Output, detail *task.Detail) error {
 		err := collection.Remove(context, storage, prefix, distribution,
-			collectionFactory, out, force)
+			collectionFactory, out, force, skipCleanup)
 		if err != nil {
 			return fmt.Errorf("unable to drop: %s", err)
 		}
@@ -375,8 +375,7 @@ func apiPublishDrop(c *gin.Context) {
 	})
 
 	if conflictErr != nil {
-		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(409)
+		c.AbortWithError(409, conflictErr)
 		return
 	}
 

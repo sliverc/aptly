@@ -25,7 +25,9 @@ func aptlyPublishDrop(cmd *commander.Command, args []string) error {
 
 	collectionFactory := context.NewCollectionFactory()
 	err = collectionFactory.PublishedRepoCollection().Remove(context, storage, prefix, distribution,
-		collectionFactory, context.Progress(), context.Flags().Lookup("force-drop").Value.Get().(bool))
+		collectionFactory, context.Progress(),
+		context.Flags().Lookup("force-drop").Value.Get().(bool),
+		context.Flags().Lookup("skip-cleanup").Value.Get().(bool))
 	if err != nil {
 		return fmt.Errorf("unable to remove: %s", err)
 	}
@@ -51,6 +53,7 @@ Example:
 	}
 
 	cmd.Flag.Bool("force-drop", false, "remove published repository even if some files could not be cleaned up")
+	cmd.Flag.Bool("skip-cleanup", false, "don't remove unreferenced files in prefix/component")
 
 	return cmd
 }

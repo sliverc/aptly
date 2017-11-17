@@ -37,7 +37,7 @@ func apiReposCreate(c *gin.Context) {
 		DefaultComponent    string
 	}
 
-	if !c.Bind(&b) {
+	if c.Bind(&b) != nil {
 		return
 	}
 
@@ -49,7 +49,7 @@ func apiReposCreate(c *gin.Context) {
 	collection := collectionFactory.LocalRepoCollection()
 	err := collection.Add(repo)
 	if err != nil {
-		c.Fail(400, err)
+		c.AbortWithError(400, err)
 		return
 	}
 
@@ -64,7 +64,7 @@ func apiReposEdit(c *gin.Context) {
 		DefaultComponent    *string
 	}
 
-	if !c.Bind(&b) {
+	if c.Bind(&b) != nil {
 		return
 	}
 
@@ -73,7 +73,7 @@ func apiReposEdit(c *gin.Context) {
 
 	repo, err := collection.ByName(c.Params.ByName("name"))
 	if err != nil {
-		c.Fail(404, err)
+		c.AbortWithError(404, err)
 		return
 	}
 
@@ -89,7 +89,7 @@ func apiReposEdit(c *gin.Context) {
 
 	err = collection.Update(repo)
 	if err != nil {
-		c.Fail(500, err)
+		c.AbortWithError(500, err)
 		return
 	}
 
@@ -103,7 +103,7 @@ func apiReposShow(c *gin.Context) {
 
 	repo, err := collection.ByName(c.Params.ByName("name"))
 	if err != nil {
-		c.Fail(404, err)
+		c.AbortWithError(404, err)
 		return
 	}
 
@@ -122,7 +122,7 @@ func apiReposDrop(c *gin.Context) {
 
 	repo, err := collection.ByName(name)
 	if err != nil {
-		c.Fail(404, err)
+		c.AbortWithError(404, err)
 		return
 	}
 
@@ -145,8 +145,7 @@ func apiReposDrop(c *gin.Context) {
 	})
 
 	if conflictErr != nil {
-		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(409)
+		c.AbortWithError(409, conflictErr)
 		return
 	}
 
@@ -160,13 +159,13 @@ func apiReposPackagesShow(c *gin.Context) {
 
 	repo, err := collection.ByName(c.Params.ByName("name"))
 	if err != nil {
-		c.Fail(404, err)
+		c.AbortWithError(404, err)
 		return
 	}
 
 	err = collection.LoadComplete(repo)
 	if err != nil {
-		c.Fail(500, err)
+		c.AbortWithError(500, err)
 		return
 	}
 
@@ -179,7 +178,7 @@ func apiReposPackagesAddDelete(c *gin.Context, taskNamePrefix string, cb func(li
 		PackageRefs []string
 	}
 
-	if !c.Bind(&b) {
+	if c.Bind(&b) != nil {
 		return
 	}
 
@@ -188,13 +187,13 @@ func apiReposPackagesAddDelete(c *gin.Context, taskNamePrefix string, cb func(li
 
 	repo, err := collection.ByName(c.Params.ByName("name"))
 	if err != nil {
-		c.Fail(404, err)
+		c.AbortWithError(404, err)
 		return
 	}
 
 	err = collection.LoadComplete(repo)
 	if err != nil {
-		c.Fail(500, err)
+		c.AbortWithError(500, err)
 		return
 	}
 
@@ -230,8 +229,7 @@ func apiReposPackagesAddDelete(c *gin.Context, taskNamePrefix string, cb func(li
 	})
 
 	if conflictErr != nil {
-		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(409)
+		c.AbortWithError(409, conflictErr)
 		return
 	}
 
@@ -273,7 +271,7 @@ func apiReposPackageFromDir(c *gin.Context) {
 	dirParam := c.Params.ByName("dir")
 	fileParam := c.Params.ByName("file")
 	if fileParam != "" && !verifyPath(fileParam) {
-		c.Fail(400, fmt.Errorf("wrong file"))
+		c.AbortWithError(400, fmt.Errorf("wrong file"))
 		return
 	}
 
@@ -283,13 +281,13 @@ func apiReposPackageFromDir(c *gin.Context) {
 	name := c.Params.ByName("name")
 	repo, err := collection.ByName(name)
 	if err != nil {
-		c.Fail(404, err)
+		c.AbortWithError(404, err)
 		return
 	}
 
 	err = collection.LoadComplete(repo)
 	if err != nil {
-		c.Fail(500, err)
+		c.AbortWithError(500, err)
 		return
 	}
 
@@ -377,8 +375,7 @@ func apiReposPackageFromDir(c *gin.Context) {
 	})
 
 	if conflictErr != nil {
-		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(409)
+		c.AbortWithError(409, conflictErr)
 		return
 	}
 

@@ -267,7 +267,7 @@ func (storage *PublishedStorage) LinkFromPool(publishedDirectory, baseName strin
 	poolPath := filepath.Join(storage.prefix, relPath)
 
 	if storage.pathCache == nil {
-		paths, md5s, err := storage.internalFilelist(storage.prefix, true)
+		paths, md5s, err := storage.internalFilelist("", true)
 		if err != nil {
 			return errors.Wrap(err, "error caching paths under prefix")
 		}
@@ -368,6 +368,13 @@ func (storage *PublishedStorage) RenameFile(oldName, newName string) error {
 		CopySource: aws.String(source),
 		Key:        aws.String(filepath.Join(storage.prefix, newName)),
 		ACL:        aws.String(storage.acl),
+	}
+
+	if storage.storageClass != "" {
+		params.StorageClass = aws.String(storage.storageClass)
+	}
+	if storage.encryptionMethod != "" {
+		params.ServerSideEncryption = aws.String(storage.encryptionMethod)
 	}
 
 	_, err := storage.s3.CopyObject(params)

@@ -68,7 +68,7 @@ func apiMirrorsCreate(c *gin.Context) {
 	b.IgnoreSignatures = context.Config().GpgDisableVerify
 	b.Architectures = context.ArchitecturesList()
 
-	if !c.Bind(&b) {
+	if c.Bind(&b) != nil {
 		return
 	}
 
@@ -78,7 +78,7 @@ func apiMirrorsCreate(c *gin.Context) {
 	if strings.HasPrefix(b.ArchiveURL, "ppa:") {
 		b.ArchiveURL, b.Distribution, b.Components, err = deb.ParsePPA(b.ArchiveURL, context.Config())
 		if err != nil {
-			c.Fail(400, err)
+			c.AbortWithError(400, err)
 			return
 		}
 	}
@@ -86,7 +86,7 @@ func apiMirrorsCreate(c *gin.Context) {
 	if b.Filter != "" {
 		_, err = query.Parse(b.Filter)
 		if err != nil {
-			c.Fail(400, fmt.Errorf("unable to create mirror: %s", err))
+			c.AbortWithError(400, fmt.Errorf("unable to create mirror: %s", err))
 			return
 		}
 	}
@@ -95,7 +95,7 @@ func apiMirrorsCreate(c *gin.Context) {
 		b.DownloadSources, b.DownloadUdebs)
 
 	if err != nil {
-		c.Fail(400, fmt.Errorf("unable to create mirror: %s", err))
+		c.AbortWithError(400, fmt.Errorf("unable to create mirror: %s", err))
 		return
 	}
 
@@ -107,20 +107,20 @@ func apiMirrorsCreate(c *gin.Context) {
 
 	verifier, err := getVerifier(b.IgnoreSignatures, b.Keyrings)
 	if err != nil {
-		c.Fail(400, fmt.Errorf("unable to initialize GPG verifier: %s", err))
+		c.AbortWithError(400, fmt.Errorf("unable to initialize GPG verifier: %s", err))
 		return
 	}
 
 	downloader := context.NewDownloader(nil)
 	err = repo.Fetch(downloader, verifier)
 	if err != nil {
-		c.Fail(400, fmt.Errorf("unable to fetch mirror: %s", err))
+		c.AbortWithError(400, fmt.Errorf("unable to fetch mirror: %s", err))
 		return
 	}
 
 	err = collection.Add(repo)
 	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to add mirror: %s", err))
+		c.AbortWithError(500, fmt.Errorf("unable to add mirror: %s", err))
 		return
 	}
 
@@ -138,7 +138,7 @@ func apiMirrorsDrop(c *gin.Context) {
 
 	repo, err := mirrorCollection.ByName(name)
 	if err != nil {
-		c.Fail(404, fmt.Errorf("unable to drop: %s", err))
+		c.AbortWithError(404, fmt.Errorf("unable to drop: %s", err))
 		return
 	}
 
@@ -162,8 +162,7 @@ func apiMirrorsDrop(c *gin.Context) {
 	})
 
 	if conflictErr != nil {
-		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(409)
+		c.AbortWithError(409, conflictErr)
 		return
 	}
 
@@ -178,13 +177,13 @@ func apiMirrorsShow(c *gin.Context) {
 	name := c.Params.ByName("name")
 	repo, err := collection.ByName(name)
 	if err != nil {
-		c.Fail(404, fmt.Errorf("unable to show: %s", err))
+		c.AbortWithError(404, fmt.Errorf("unable to show: %s", err))
 		return
 	}
 
 	err = collection.LoadComplete(repo)
 	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to show: %s", err))
+		c.AbortWithError(500, fmt.Errorf("unable to show: %s", err))
 	}
 
 	c.JSON(200, repo)
@@ -198,17 +197,17 @@ func apiMirrorsPackages(c *gin.Context) {
 	name := c.Params.ByName("name")
 	repo, err := collection.ByName(name)
 	if err != nil {
-		c.Fail(404, fmt.Errorf("unable to show: %s", err))
+		c.AbortWithError(404, fmt.Errorf("unable to show: %s", err))
 		return
 	}
 
 	err = collection.LoadComplete(repo)
 	if err != nil {
-		c.Fail(500, fmt.Errorf("unable to show: %s", err))
+		c.AbortWithError(500, fmt.Errorf("unable to show: %s", err))
 	}
 
 	if repo.LastDownloadDate.IsZero() {
-		c.Fail(404, fmt.Errorf("unable to show package list, mirror hasn't been downloaded yet"))
+		c.AbortWithError(404, fmt.Errorf("unable to show package list, mirror hasn't been downloaded yet"))
 		return
 	}
 
@@ -217,7 +216,7 @@ func apiMirrorsPackages(c *gin.Context) {
 
 	list, err := deb.NewPackageListFromRefList(reflist, collectionFactory.PackageCollection(), nil)
 	if err != nil {
-		c.Fail(404, err)
+		c.AbortWithError(404, err)
 		return
 	}
 
@@ -225,7 +224,7 @@ func apiMirrorsPackages(c *gin.Context) {
 	if queryS != "" {
 		q, err := query.Parse(c.Request.URL.Query().Get("q"))
 		if err != nil {
-			c.Fail(400, err)
+			c.AbortWithError(400, err)
 			return
 		}
 
@@ -242,7 +241,7 @@ func apiMirrorsPackages(c *gin.Context) {
 			sort.Strings(architecturesList)
 
 			if len(architecturesList) == 0 {
-				c.Fail(400, fmt.Errorf("unable to determine list of architectures, please specify explicitly"))
+				c.AbortWithError(400, fmt.Errorf("unable to determine list of architectures, please specify explicitly"))
 				return
 			}
 		}
@@ -252,7 +251,7 @@ func apiMirrorsPackages(c *gin.Context) {
 		list, err = list.Filter([]deb.PackageQuery{q}, withDeps,
 			nil, context.DependencyOptions(), architecturesList)
 		if err != nil {
-			c.Fail(500, fmt.Errorf("unable to search: %s", err))
+			c.AbortWithError(500, fmt.Errorf("unable to search: %s", err))
 		}
 	}
 
@@ -297,7 +296,7 @@ func apiMirrorsUpdate(c *gin.Context) {
 
 	remote, err = collection.ByName(c.Params.ByName("name"))
 	if err != nil {
-		c.Fail(404, err)
+		c.AbortWithError(404, err)
 		return
 	}
 
@@ -310,21 +309,21 @@ func apiMirrorsUpdate(c *gin.Context) {
 	b.Architectures = remote.Architectures
 	b.Components = remote.Components
 
-	if !c.Bind(&b) {
+	if c.Bind(&b) != nil {
 		return
 	}
 
 	if b.Name != remote.Name {
 		_, err = collection.ByName(b.Name)
 		if err == nil {
-			c.Fail(409, fmt.Errorf("unable to rename: mirror %s already exists", b.Name))
+			c.AbortWithError(409, fmt.Errorf("unable to rename: mirror %s already exists", b.Name))
 			return
 		}
 	}
 
 	if b.DownloadUdebs != remote.DownloadUdebs {
 		if remote.IsFlat() && b.DownloadUdebs {
-			c.Fail(400, fmt.Errorf("unable to update: flat mirrors don't support udebs"))
+			c.AbortWithError(400, fmt.Errorf("unable to update: flat mirrors don't support udebs"))
 			return
 		}
 	}
@@ -340,7 +339,7 @@ func apiMirrorsUpdate(c *gin.Context) {
 
 	verifier, err := getVerifier(b.IgnoreSignatures, b.Keyrings)
 	if err != nil {
-		c.Fail(400, fmt.Errorf("unable to initialize GPG verifier: %s", err))
+		c.AbortWithError(400, fmt.Errorf("unable to initialize GPG verifier: %s", err))
 		return
 	}
 
@@ -525,8 +524,7 @@ func apiMirrorsUpdate(c *gin.Context) {
 	})
 
 	if conflictErr != nil {
-		c.Error(conflictErr, conflictErr.Tasks)
-		c.AbortWithStatus(409)
+		c.AbortWithError(409, conflictErr)
 		return
 	}
 
