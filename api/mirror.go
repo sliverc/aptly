@@ -344,7 +344,7 @@ func apiMirrorsUpdate(c *gin.Context) {
 	}
 
 	resources := []string{string(remote.Key())}
-	task, conflictErr := runTaskInBackground("Update mirror "+b.Name, resources, func(out *task.Output, detail *task.Detail) error {
+	currTask, conflictErr := runTaskInBackground("Update mirror "+b.Name, resources, func(out *task.Output, detail *task.Detail) error {
 
 		downloader := context.NewDownloader(out)
 		err := remote.Fetch(downloader, verifier)
@@ -528,5 +528,5 @@ func apiMirrorsUpdate(c *gin.Context) {
 		return
 	}
 
-	c.JSON(202, task)
+	c.JSON(202, currTask)
 }
