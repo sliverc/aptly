@@ -183,7 +183,7 @@ func (storage *PublishedStorage) putFile(path string, source io.ReadSeeker) erro
 func (storage *PublishedStorage) Remove(path string) error {
 	params := &s3.DeleteObjectInput{
 		Bucket: aws.String(storage.bucket),
-		Key:    aws.String(path),
+		Key:    aws.String(filepath.Join(storage.prefix, path)),
 	}
 	_, err := storage.s3.DeleteObject(params)
 	if err != nil {
