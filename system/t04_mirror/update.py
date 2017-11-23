@@ -373,3 +373,35 @@ class UpdateMirror22Test(BaseTest):
     ]
     runCmd = "aptly mirror update --keyring=aptlytest.gpg libnvidia-container"
     outputMatchPrepare = filterOutSignature
+
+
+class UpdateMirror23Test(BaseTest):
+    """
+    update mirrors: update with installer
+    """
+    longTest = False
+    fixtureGpg = True
+    fixtureCmds = [
+        "aptly -architectures=s390x mirror create -keyring=aptlytest.gpg -filter='installer' -with-installer wheezy http://mirror.yandex.ru/debian/ wheezy main non-free",
+    ]
+    runCmd = "aptly mirror update -keyring=aptlytest.gpg wheezy"
+    outputMatchPrepare = filterOutSignature
+
+    def output_processor(self, output):
+        return "\n".join(sorted(output.split("\n")))
+
+
+class UpdateMirror24Test(BaseTest):
+    """
+    update mirrors: update with installer with separate gpg file
+    """
+    longTest = False
+    fixtureGpg = True
+    fixtureCmds = [
+        "aptly -architectures=amd64 mirror create -keyring=aptlytest.gpg -filter='installer' -with-installer vivid http://mirror.yandex.ru/ubuntu/ vivid main restricted",
+    ]
+    runCmd = "aptly mirror update -keyring=aptlytest.gpg vivid"
+    outputMatchPrepare = filterOutSignature
+
+    def output_processor(self, output):
+        return "\n".join(sorted(output.split("\n")))
