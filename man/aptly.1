@@ -617,12 +617,24 @@ $ aptly mirror edit \-filter=nginx \-filter\-with\-deps some\-mirror
 Options:
 .
 .TP
+\-\fBarchive\-url\fR=
+archive url is the root of archive
+.
+.TP
 \-\fBfilter\fR=
 filter packages in mirror
 .
 .TP
 \-\fBfilter\-with\-deps\fR
 when filtering, include dependencies of matching packages as well
+.
+.TP
+\-\fBignore\-signatures\fR
+disable verification of Release file signatures
+.
+.TP
+\-\fBkeyring\fR=
+gpg keyring to use when verifying Release file (could be specified multiple times)
 .
 .TP
 \-\fBwith\-sources\fR
