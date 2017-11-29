@@ -61,9 +61,48 @@ func (downloader *downloaderImpl) GetProgress() aptly.Progress {
 	return downloader.progress
 }
 
+// GetLength of given url
+func (downloader *downloaderImpl) GetLength(url string) (int64, error) {
+	req, err := downloader.newRequest("HEAD", url)
+	if err != nil {
+		return -1, err
+	}
+
+	resp, err := downloader.client.Do(req)
+	if err != nil {
+		return -1, errors.Wrap(err, url)
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return -1, &Error{Code: resp.StatusCode, URL: url}
+	}
+
+	if resp.ContentLength < 0 {
+		return -1, fmt.Errorf("Could not determine length of %s", url)
+	}
+
+	return resp.ContentLength, nil
+}
+
 // Download starts new download task
 func (downloader *downloaderImpl) Download(url string, destination string) error {
 	return downloader.DownloadWithChecksum(url, destination, nil, false, 1)
+}
+
+func (downloader *downloaderImpl) newRequest(method, url string) (*http.Request, error) {
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, url)
+	}
+	req.Close = true
+
+	proxyURL, _ := downloader.client.Transport.(*http.Transport).Proxy(req)
+	if proxyURL == nil && (req.URL.Scheme == "http" || req.URL.Scheme == "https") {
+		req.URL.Opaque = strings.Replace(req.URL.RequestURI(), "+", "%2b", -1)
+		req.URL.RawQuery = ""
+	}
+
+	return req, nil
 }
 
 // DownloadWithChecksum starts new download task with checksum verification
@@ -73,18 +112,7 @@ func (downloader *downloaderImpl) DownloadWithChecksum(url string, destination s
 	if downloader.progress != nil {
 		downloader.progress.Printf("Downloading %s...\n", url)
 	}
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return errors.Wrap(err, url)
-	}
-	req.Close = true
-
-	proxyURL, _ := downloader.client.Transport.(*http.Transport).Proxy(req)
-	if proxyURL == nil && (req.URL.Scheme == "http" || req.URL.Scheme == "https") {
-		req.URL.Opaque = strings.Replace(req.URL.RequestURI(), "+", "%2b", -1)
-		req.URL.RawQuery = ""
-	}
+	req, err := downloader.newRequest("GET", url)
 
 	var temppath string
 	for maxTries > 0 {

@@ -159,6 +159,8 @@ type Downloader interface {
 	DownloadWithChecksum(url string, destination string, expected *utils.ChecksumInfo, ignoreMismatch bool, maxTries int) error
 	// GetProgress returns Progress object
 	GetProgress() Progress
+	// GetLength of given url
+	GetLength(url string) (int64, error)
 }
 
 // ChecksumStorage is stores checksums in some (persistent) storage
