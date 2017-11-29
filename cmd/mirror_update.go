@@ -191,6 +191,8 @@ func aptlyMirrorUpdate(cmd *commander.Command, args []string) error {
 						pushError(e)
 						continue
 					}
+
+					task.Finished = true
 				case <-abort:
 					return
 				}
@@ -209,10 +211,6 @@ func aptlyMirrorUpdate(cmd *commander.Command, args []string) error {
 
 	context.Progress().ShutdownBar()
 
-	if len(errors) > 0 {
-		return fmt.Errorf("unable to update: download errors:\n  %s", strings.Join(errors, "\n  "))
-	}
-
 	err = context.ReOpenDatabase()
 	if err != nil {
 		return fmt.Errorf("unable to update: %s", err)
@@ -226,6 +224,10 @@ func aptlyMirrorUpdate(cmd *commander.Command, args []string) error {
 		context.Progress().AddBar(1)
 
 		task := &queue[idx]
+
+		if !task.Finished {
+			continue
+		}
 
 		// and import it back to the pool
 		task.File.PoolPath, err = context.PackagePool().Import(task.TempDownPath, task.File.Filename, &task.File.Checksums, true, collectionFactory.ChecksumCollection())
@@ -247,6 +249,10 @@ func aptlyMirrorUpdate(cmd *commander.Command, args []string) error {
 	}
 
 	context.Progress().ShutdownBar()
+
+	if len(errors) > 0 {
+		return fmt.Errorf("unable to update: download errors:\n  %s", strings.Join(errors, "\n  "))
+	}
 
 	repo.FinalizeDownload(collectionFactory, context.Progress())
 	err = collectionFactory.RemoteRepoCollection().Update(repo)
