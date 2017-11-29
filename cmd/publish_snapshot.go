@@ -138,6 +138,10 @@ func aptlyPublishSnapshotOrRepo(cmd *commander.Command, args []string) error {
 		published.SkipContents = context.Flags().Lookup("skip-contents").Value.Get().(bool)
 	}
 
+	if context.Flags().IsSet("acquire-by-hash") {
+		published.AcquireByHash = context.Flags().Lookup("acquire-by-hash").Value.Get().(bool)
+	}
+
 	duplicate := collectionFactory.PublishedRepoCollection().CheckDuplicate(published)
 	if duplicate != nil {
 		collectionFactory.PublishedRepoCollection().LoadComplete(duplicate, collectionFactory)
@@ -228,6 +232,7 @@ Example:
 	cmd.Flag.String("butautomaticupgrades", "", "overwrite value for ButAutomaticUpgrades field")
 	cmd.Flag.String("label", "", "label to publish")
 	cmd.Flag.Bool("force-overwrite", false, "overwrite files in package pool in case of mismatch")
+	cmd.Flag.Bool("acquire-by-hash", false, "provide index files by hash")
 
 	return cmd
 }
