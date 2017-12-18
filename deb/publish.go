@@ -574,7 +574,7 @@ func (p *PublishedRepo) Publish(packagePool aptly.PackagePool, publishedStorageP
 
 		// For all architectures, pregenerate packages/sources files
 		for _, arch := range p.Architectures {
-			indexes.PackageIndex(component, arch, false)
+			indexes.PackageIndex(component, arch, false, false)
 		}
 
 		list.PrepareIndex()
@@ -586,19 +586,14 @@ func (p *PublishedRepo) Publish(packagePool aptly.PackagePool, publishedStorageP
 				progress.AddBar(1)
 			}
 
-			matches := false
 			for _, arch := range p.Architectures {
 				if pkg.MatchesArchitecture(arch) {
-					matches = true
+					hadUdebs = hadUdebs || pkg.IsUdeb
+					err = pkg.LinkFromPool(publishedStorage, packagePool, p.Prefix, p.Distribution, component, arch, forceOverwrite)
+					if err != nil {
+						return err
+					}
 					break
-				}
-			}
-
-			if matches {
-				hadUdebs = hadUdebs || pkg.IsUdeb
-				err = pkg.LinkFromPool(publishedStorage, packagePool, p.Prefix, component, forceOverwrite)
-				if err != nil {
-					return err
 				}
 			}
 
@@ -606,7 +601,7 @@ func (p *PublishedRepo) Publish(packagePool aptly.PackagePool, publishedStorageP
 				if pkg.MatchesArchitecture(arch) {
 					var bufWriter *bufio.Writer
 
-					if !p.SkipContents {
+					if !p.SkipContents && !pkg.IsInstaller {
 						key := fmt.Sprintf("%s-%v", arch, pkg.IsUdeb)
 
 						contentIndex := contentIndexes[key]
@@ -619,12 +614,12 @@ func (p *PublishedRepo) Publish(packagePool aptly.PackagePool, publishedStorageP
 						contentIndex.Push(pkg, packagePool, progress)
 					}
 
-					bufWriter, err = indexes.PackageIndex(component, arch, pkg.IsUdeb).BufWriter()
+					bufWriter, err = indexes.PackageIndex(component, arch, pkg.IsUdeb, pkg.IsInstaller).BufWriter()
 					if err != nil {
 						return err
 					}
 
-					err = pkg.Stanza().WriteTo(bufWriter, pkg.IsSource, false)
+					err = pkg.Stanza().WriteTo(bufWriter, pkg.IsSource, false, pkg.IsInstaller)
 					if err != nil {
 						return err
 					}
@@ -673,7 +668,7 @@ func (p *PublishedRepo) Publish(packagePool aptly.PackagePool, publishedStorageP
 
 			// For all architectures, pregenerate .udeb indexes
 			for _, arch := range p.Architectures {
-				indexes.PackageIndex(component, arch, true)
+				indexes.PackageIndex(component, arch, true, false)
 			}
 		}
 
@@ -696,7 +691,7 @@ func (p *PublishedRepo) Publish(packagePool aptly.PackagePool, publishedStorageP
 					return fmt.Errorf("unable to get ReleaseIndex writer: %s", err)
 				}
 
-				err = release.WriteTo(bufWriter, false, true)
+				err = release.WriteTo(bufWriter, false, true, false)
 				if err != nil {
 					return fmt.Errorf("unable to create Release file: %s", err)
 				}
@@ -758,7 +753,7 @@ func (p *PublishedRepo) Publish(packagePool aptly.PackagePool, publishedStorageP
 		return err
 	}
 
-	err = release.WriteTo(bufWriter, false, true)
+	err = release.WriteTo(bufWriter, false, true, false)
 	if err != nil {
 		return fmt.Errorf("unable to create Release file: %s", err)
 	}
